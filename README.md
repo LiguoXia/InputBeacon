@@ -13,7 +13,7 @@
 ## 下载与开始使用
 
 1. 打开本仓库的 **[Releases](https://github.com/LiguoXia/InputBeacon/releases/latest)**，选择最新版本。
-2. 下载 `键盘状态.exe`，或下载 `InputBeacon-v1.3.0-portable.zip` 后解压。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
+2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.3.0/InputBeacon-v1.3.0-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
 3. 双击 EXE。第一次运行默认显示悬浮窗；任务栏状态、光标跟随和开机启动默认关闭。
 4. 点击终端输入区，再切换中英文、Caps Lock 或 Shift，观察提示。
 5. 右键悬浮文字或通知区域图标，调整设置。
