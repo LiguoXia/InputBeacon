@@ -21,8 +21,13 @@ namespace InputBeacon
     {
         private readonly object gate = new object();
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
+        private readonly AutoResetEvent javaWake = new AutoResetEvent(false);
         private readonly Thread worker;
-        private CaretSample latest;
+        private readonly Thread javaWorker;
+        private CaretSample latest, javaLatest;
+        private string lastStatus = "Waiting for an input caret";
+        private string lastJavaStatus = "Java bridge has not been requested";
+        internal string Status { get { lock (gate) return lastStatus + "\r\n" + lastJavaStatus; } }
         private IntPtr requestedForeground, requestedFocus;
         private volatile bool stopping;
         private readonly int ownProcess = Process.GetCurrentProcess().Id;
@@ -37,9 +42,12 @@ namespace InputBeacon
 
         internal CaretTracker()
         {
-            worker = new Thread(Work) { IsBackground = true, Name = "InputBeacon caret geometry" };
+            worker = new Thread(delegate() { Work(false); }) { IsBackground = true, Name = "InputBeacon Windows caret" };
             worker.SetApartmentState(ApartmentState.MTA);
             worker.Start();
+            javaWorker = new Thread(delegate() { Work(true); }) { IsBackground = true, Name = "InputBeacon Java caret" };
+            javaWorker.SetApartmentState(ApartmentState.STA);
+            javaWorker.Start();
         }
 
         internal static long Now { get { return (long)(Stopwatch.GetTimestamp() * (1000.0 / Stopwatch.Frequency)); } }
@@ -51,21 +59,32 @@ namespace InputBeacon
             uint threadId = Native.GetWindowThreadProcessId(foreground, out processId);
             if (foreground == IntPtr.Zero || threadId == 0 || processId == ownProcess) return null;
             var info = new Native.GuiThreadInfo { Size = Marshal.SizeOf(typeof(Native.GuiThreadInfo)) };
-            if (!Native.GetGUIThreadInfo(threadId, ref info) || (info.Flags & 0x1e) != 0) return null;
-            IntPtr focus = info.Focus;
+            bool hasThreadInfo = Native.GetGUIThreadInfo(threadId, ref info);
+            if (hasThreadInfo && (info.Flags & 0x1e) != 0) return null;
+            IntPtr focus = hasThreadInfo && info.Focus != IntPtr.Zero ? info.Focus : foreground;
             Rectangle native;
             if (TryNative(info, out native) && IsInsideWindow(foreground, native))
+            {
+                lock (gate) lastStatus = "Win32 caret";
                 return Native.GetForegroundWindow() == foreground ? new CaretSample { Foreground = foreground, Focus = focus, Bounds = native, Timestamp = Now, Valid = true } : null;
+            }
             lock (gate)
             {
                 if (stopping) return null;
                 requestedForeground = foreground;
                 requestedFocus = focus;
                 wake.Set();
-                if (latest != null && latest.Valid && latest.Foreground == foreground && latest.Focus == focus && Now - latest.Timestamp < 350)
+                if (Native.ClassName(foreground).StartsWith("SunAwt", StringComparison.Ordinal)) javaWake.Set();
+                if (Fresh(javaLatest, foreground, focus, Now)) return javaLatest;
+                if (Fresh(latest, foreground, focus, Now))
                     return latest;
             }
             return null;
+        }
+
+        internal static bool Fresh(CaretSample sample, IntPtr foreground, IntPtr focus, long now)
+        {
+            return sample != null && sample.Valid && sample.Foreground == foreground && sample.Focus == focus && now >= sample.Timestamp && now - sample.Timestamp < 350;
         }
 
         internal static bool TryNative(Native.GuiThreadInfo info, out Rectangle rectangle)
@@ -91,22 +110,48 @@ namespace InputBeacon
             return GetWindowRect(window, out bounds) && Rectangle.FromLTRB(bounds.Left, bounds.Top, bounds.Right, bounds.Bottom).IntersectsWith(caret);
         }
 
-        private void Work()
+        private void Work(bool java)
         {
+            var automation = java ? null : new AutomationCaret();
+            var bridge = java ? new JavaCaret() : null;
+            AutoResetEvent signal = java ? javaWake : wake;
             try
             {
                 while (!stopping)
                 {
-                    wake.WaitOne();
+                    bool requested = signal.WaitOne(java ? 25 : Timeout.Infinite);
+                    // Windows_run owns a message window on this STA. Its discovery
+                    // and Java callbacks require a pump even between sample requests.
+                    if (java) System.Windows.Forms.Application.DoEvents();
                     if (stopping) break;
+                    if (!requested) continue;
                     IntPtr foreground, focus;
                     lock (gate) { foreground = requestedForeground; focus = requestedFocus; }
                     var sample = new CaretSample { Foreground = foreground, Focus = focus, Timestamp = Now };
+                    string status = "No caret in the active control";
                     try
                     {
                         Rectangle rectangle;
-                        if (Native.GetForegroundWindow() == foreground &&
-                            (TryAccessibleCaret(focus, out rectangle) || TryAccessibleCaret(foreground, out rectangle) || TryAutomation(foreground, out rectangle)))
+                        bool found = false;
+                        rectangle = Rectangle.Empty;
+                        if (Native.GetForegroundWindow() == foreground)
+                        {
+                            if (java) { found = bridge.TryRead(foreground, out rectangle); status = bridge.Status; }
+                            else
+                            {
+                                found = (TryAccessibleCaret(focus, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
+                                    (TryAccessibleCaret(foreground, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
+                                    (TryAccessibleCaret(IntPtr.Zero, out rectangle) && IsInsideWindow(foreground, rectangle));
+                                if (found) status = "MSAA caret";
+                                else
+                                {
+                                    found = automation.TryRead(foreground, out rectangle);
+                                    status = automation.Status;
+                                    if (!found && TryAutomation(foreground, out rectangle)) { found = true; status = "UIA TextPattern"; }
+                                }
+                            }
+                        }
+                        if (found)
                         {
                             sample.Bounds = rectangle;
                             sample.Valid = Native.GetForegroundWindow() == foreground && IsInsideWindow(foreground, rectangle);
@@ -118,17 +163,24 @@ namespace InputBeacon
                     catch (ArgumentException) { }
                     catch (UnauthorizedAccessException) { }
                     catch (NotSupportedException) { }
+                    catch (NotImplementedException) { }
                     catch (System.Security.SecurityException) { }
-                    lock (gate) latest = sample;
+                    // Age begins when the geometry was obtained, not before a cold
+                    // UIA connection; otherwise slow initial connections never show.
+                    sample.Timestamp = Now;
+                    lock (gate)
+                    {
+                        if (java) { javaLatest = sample; lastJavaStatus = status ?? "Java caret unavailable"; }
+                        else { latest = sample; lastStatus = status ?? "Windows caret unavailable"; }
+                    }
                 }
             }
-            finally { wake.Dispose(); }
+            finally { if (bridge != null) bridge.Dispose(); if (automation != null) automation.Dispose(); signal.Dispose(); }
         }
 
-        private static bool TryAccessibleCaret(IntPtr window, out Rectangle rectangle)
+        internal static bool TryAccessibleCaret(IntPtr window, out Rectangle rectangle)
         {
             rectangle = Rectangle.Empty;
-            if (window == IntPtr.Zero) return false;
             IAccessible accessible = null;
             try
             {
@@ -144,6 +196,8 @@ namespace InputBeacon
             catch (COMException) { return false; }
             catch (InvalidCastException) { return false; }
             catch (FormatException) { return false; }
+            catch (NotImplementedException) { return false; }
+            catch (NotSupportedException) { return false; }
             finally { if (accessible != null && Marshal.IsComObject(accessible)) Marshal.ReleaseComObject(accessible); }
         }
 
@@ -154,9 +208,7 @@ namespace InputBeacon
         {
             rectangle = Rectangle.Empty;
             AutomationElement element = AutomationElement.FocusedElement;
-            uint processId;
-            Native.GetWindowThreadProcessId(foreground, out processId);
-            if (element == null || element.Current.ProcessId != processId || element.Current.IsOffscreen) return false;
+            if (element == null || !element.Current.HasKeyboardFocus || element.Current.IsOffscreen || !BelongsToForeground(element, foreground)) return false;
             object patternObject;
             if (!element.TryGetCurrentPattern(TextPattern.Pattern, out patternObject)) return false;
             TextPatternRange[] ranges = ((TextPattern)patternObject).GetSelection();
@@ -178,6 +230,17 @@ namespace InputBeacon
             return IsCaretRectangle(rectangle);
         }
 
+        private static bool BelongsToForeground(AutomationElement element, IntPtr foreground)
+        {
+            for (int depth = 0; element != null && depth < 32; depth++)
+            {
+                IntPtr window = new IntPtr(element.Current.NativeWindowHandle);
+                if (window == foreground || (window != IntPtr.Zero && Native.IsChild(foreground, window))) return true;
+                element = TreeWalker.RawViewWalker.GetParent(element);
+            }
+            return false;
+        }
+
         private static Rectangle ConvertBounds(System.Windows.Rect bounds, bool atEnd)
         {
             if (bounds.IsEmpty || double.IsNaN(bounds.X) || double.IsInfinity(bounds.X) ||
@@ -189,7 +252,7 @@ namespace InputBeacon
 
         public void Dispose()
         {
-            lock (gate) { if (stopping) return; stopping = true; wake.Set(); }
+            lock (gate) { if (stopping) return; stopping = true; wake.Set(); javaWake.Set(); }
             // Do not wait on a remote accessibility provider during shutdown.
         }
     }

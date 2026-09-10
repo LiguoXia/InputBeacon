@@ -49,8 +49,9 @@ namespace InputBeacon
 
         internal static Point Position(Rectangle caret, Size size, Rectangle workArea, int gap)
         {
-            int x = caret.Right + gap;
-            if (x + size.Width > workArea.Right) x = caret.Left - size.Width - gap;
+            int inset = (int)Math.Round(size.Width * 13f / BubblePainter.Width);
+            int x = caret.Right + gap - inset;
+            if (x + size.Width > workArea.Right) x = caret.Left - size.Width - gap + inset;
             int y = caret.Top - size.Height - gap;
             if (y < workArea.Top) y = caret.Bottom + gap;
             return Settings.Clamp(new Point(x, y), size, workArea);
@@ -62,14 +63,16 @@ namespace InputBeacon
             try { dpi = Native.GetDpiForWindow(caret.Foreground); } catch (EntryPointNotFoundException) { }
             if (dpi == 0) dpi = 96;
             float scale = dpi / 96f * settings.Scale / 100f;
-            Size size = new Size((int)Math.Round(CardPainter.Width * scale), (int)Math.Round(CardPainter.Height * scale));
+            Size size = new Size((int)Math.Round(BubblePainter.Width * scale), (int)Math.Round(BubblePainter.Height * scale));
             Rectangle area = Screen.FromRectangle(caret.Bounds).WorkingArea;
-            Point location = Position(caret.Bounds, size, area, (int)Math.Round(6 * scale));
-            string key = state.Key + ":" + size + ":" + settings.UseCustomTextColor + ":" + settings.TextColor.ToArgb();
+            Point location = Position(caret.Bounds, size, area, Math.Max(0, (int)Math.Round(scale)));
+            bool tailRight = location.X + size.Width / 2 < caret.Bounds.Left;
+            bool below = location.Y >= caret.Bounds.Bottom;
+            string key = state.Key + ":" + size + ":" + settings.UseCustomTextColor + ":" + settings.TextColor.ToArgb() + ":" + tailRight + ":" + below;
             bool render = paintKey != key || surface == null;
             if (render)
             {
-                Bitmap next = CardPainter.Render(size, state, settings.UseCustomTextColor ? (Color?)settings.TextColor : null);
+                Bitmap next = BubblePainter.Render(size, state, settings.UseCustomTextColor ? (Color?)settings.TextColor : null, tailRight, below);
                 if (surface != null) surface.Dispose();
                 surface = next;
                 paintKey = key;

@@ -2,18 +2,18 @@
 
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
-单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标右上方的跟随提示。三种显示方式可独立开启或同时使用。当前版本：**1.3.0**。
+单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.0**。
 
 **[下载最新版本](https://github.com/LiguoXia/InputBeacon/releases/latest)** · [版本记录](CHANGELOG.md) · [反馈问题](https://github.com/LiguoXia/InputBeacon/issues)
 
 ![透明文字在浅色和深色背景上的效果](docs/images/preview.png)
 
-图中的背景用于对比；悬浮窗和跟随提示本身没有背景板。
+图中的背景用于对比；固定悬浮窗本身没有背景板。光标跟随使用下方所示的浅色半透明气泡。
 
 ## 下载与开始使用
 
 1. 打开本仓库的 **[Releases](https://github.com/LiguoXia/InputBeacon/releases/latest)**，选择最新版本。
-2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.3.0/InputBeacon-v1.3.0-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
+2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.0/InputBeacon-v1.4.0-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
 3. 双击 EXE。第一次运行默认显示悬浮窗；任务栏状态、光标跟随和开机启动默认关闭。
 4. 点击终端输入区，再切换中英文、Caps Lock 或 Shift，观察提示。
 5. 右键悬浮文字或通知区域图标，调整设置。
@@ -62,7 +62,7 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 ![通知区域图标的浅色与深色背景预览](docs/images/taskbar-icons.png)
 
-### 光标跟随显示 · v1.3 新增
+### 光标跟随气泡
 
 右键 → **跟随显示设置…**，勾选“在输入光标右上方显示状态”，选择时长后点击**应用**。也可通过菜单中的**光标跟随显示**快速开关。
 
@@ -71,7 +71,9 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 | 切换后若干秒消失 | 中英文或大小写状态变化时出现，可设 **1～60 秒**，默认 **3 秒**；显示期间也会跟随光标移动 |
 | 一直显示 | 能读取当前输入光标时持续显示；输入、换行和移动光标时同步调整位置 |
 
-提示通常位于光标右上方；接近屏幕右边缘时移到左侧，接近顶边时移到下方。跟随提示始终鼠标穿透，不抢键盘焦点。
+提示通常位于光标右上方；气泡小尖角距离光标约 4 个逻辑像素，比旧版更贴近。标准尺寸为 **72 × 34** 逻辑像素，带浅色半透明底、圆角、细边和柔和阴影，使用四倍分辨率渲染平滑边缘。接近屏幕右边缘时移到左侧，接近顶边时移到下方。跟随提示始终鼠标穿透，不抢键盘焦点。
+
+![跟随气泡的浅色和深色背景效果](docs/images/bubble-preview.png)
 
 定时模式下，移动光标不会延长倒计时；再次切换状态会重新计时。开启功能或应用跟随设置时，也会显示一次当前状态。设置在下次启动时保留。
 
@@ -116,11 +118,23 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 中英文状态取决于输入法的 Windows IME 兼容接口。第三方输入法、特殊 TSF 模式或高权限窗口可能不提供状态，也可能返回陈旧状态。`?` 表示读取失败；API 返回成功并不等于所有第三方输入法都已验证准确。
 
-光标位置依次尝试 Win32 原生插入光标、MSAA 辅助功能光标、UI Automation 文本范围。浏览器普通输入框、网页终端、Canvas 自绘终端和不同 SSH 客户端提供的接口可能不同。只绘制画面且不提供光标几何信息的终端，跟随提示可能无法显示，此时可继续使用固定悬浮窗和任务栏状态。
+Windows 光标位置尝试 Win32 原生插入光标、MSAA 辅助功能光标、原生 UI Automation **TextPattern2 / GetCaretRange** 和旧版文本范围。1.4 补充现代资源管理器输入框的光标接口、跨进程宿主识别和系统 MSAA 光标回退，并修正首次慢查询导致位置持续过期的问题。浏览器普通输入框、网页终端、Canvas 自绘终端和不同 SSH 客户端提供的接口可能不同。只绘制画面且不提供光标几何信息的终端，跟随提示可能无法显示，此时可继续使用固定悬浮窗和任务栏状态。
+
+### IntelliJ IDEA / Java 编辑器
+
+IDEA 的 Java 编辑区通过 **Java Access Bridge** 提供光标位置。普通 Windows 文本接口可能只看到外层窗口。
+
+1. 先打开 IDEA，然后右键 InputBeacon 通知区域图标 → **IDEA / Java 光标支持…**。
+2. 点击 **启用 Java 光标支持**。软件调用 IDEA 自带运行环境的 `jabswitch -enable`，启用当前用户的 Java 辅助接口。
+3. 保存工作，完全退出并重新打开 IDEA，再到编辑区输入、换行和移动光标。
+4. 如果仍没有提示，在 IDEA **设置 → 外观与行为 → 外观**中开启 **支持屏幕阅读器 / Support screen readers**，应用设置。不同 IDEA 版本的菜单文字可能不同。
+5. 确认 InputBeacon 的光标跟随已开启，可先选择“一直显示”进行检查。
+
+启用桥接通常只需一次。软件不会自动重启 IDEA，也不会修改项目文件。运行时使用 Java 应用自带的桥接 DLL，不捆绑 Java；未找到兼容桥接运行环境时，设置会提示先打开 IDEA。当前验证使用 64 位 JetBrains Runtime，32 位与不同厂商运行环境仍需验证。
 
 程序不会修改浏览器启动参数或辅助功能设置。目标应用以管理员权限运行时，普通权限程序可能读不到状态；确有需要时可让两者使用相同权限。安全桌面、独占全屏和特殊远程环境不保证显示。
 
-**验证范围：**本地自动检查覆盖模式解析、设置保存、颜色、透明合成、通知区域图标、跟随计时与边缘避让、原生 TextBox 光标位置变化，以及跟随窗口不改变前台焦点。浏览器 / SSH 客户端、第三方输入法和跨屏混合 DPI 的实际组合仍需人工验证。
+**验证范围：**本地自动检查覆盖模式解析、设置保存、颜色、透明合成、通知区域图标、跟随计时与边缘避让、真实 WinForms TextBox 光标和原生 UIA COM 连接，以及跟随窗口不改变前台焦点。另在 IDEA 2024.1.7 所带的 64 位 JetBrains Runtime 上，通过独立 Java 输入框验证水平移动、换行、文末、空文本及恢复输入，共 6 个阶段。当前未完成 IDEA 编辑区和资源管理器地址栏、搜索框的端到端气泡显示验收；浏览器 / SSH、第三方输入法及跨屏混合 DPI 的实际组合也仍需人工验证。
 
 ## 常见问题
 
@@ -132,7 +146,7 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 **提示很快消失？** 定时模式按最后一次状态变化计时，移动光标不延时。可增加秒数，或选择“一直显示”。
 
-**浅色文字看不清？** 提示没有背景板，可以选择对比更强的颜色或恢复默认配色。
+**浅色文字看不清？** 固定悬浮窗没有背景板；跟随气泡使用浅色半透明底。可以选择深色文字或恢复默认蓝色配色。
 
 **A / a 与实际输入不同？** 显示依据常规字母键的 Caps Lock 与 Shift 组合。应用、输入法或远端键盘重映射可能改变实际输出。
 
@@ -146,7 +160,7 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 关闭程序后删除此文件，可恢复默认设置。文件只保存显示位置、大小、颜色、透明度和显示偏好，不保存输入内容。
 
-程序不联网、不记录或读取输入文本、不安装全局键盘钩子、不注入目标进程，也不更改输入模式。辅助功能接口只用于光标几何位置。仅在用户开启“开机启动”时写入当前用户的 Windows `Run` 启动项。
+程序不联网、不记录或读取输入文本、不安装全局键盘钩子、不注入目标进程，也不更改输入模式。辅助功能接口只用于光标几何位置和索引。用户开启“开机启动”时写入当前用户的 Windows `Run` 启动项；点击“启用 Java 光标支持”时，Java 自带工具会更新当前用户的 `.accessibility.properties` 及相关 Java 辅助功能配置。复制状态诊断包含定位接口结果，不包含输入文本或窗口标题。
 
 ## 从源码构建
 
@@ -173,6 +187,14 @@ test-output/*.png         外观与设置预览
 
 自测会短暂创建本工具的测试窗口，不修改用户偏好或真实输入法开关。`test-browser.html` 是不联网的手动检查页；打开后依次检查中英文、Caps Lock、Shift、输入、换行和移动光标，再到实际终端重复验证。
 
+如果安装了包含 `javac.exe` 的 64 位 Java 运行环境，可额外运行真实 Java 桥接检查：
+
+```powershell
+.\tests\test-java.ps1 -RuntimeBin 'C:\路径\IDEA\jbr\bin'
+```
+
+测试仅为自己创建的 Java 窗口启用桥接，不修改用户的全局 Java 设置；自动关闭测试窗口，结果写入 `test-output/java/java-results.txt`。
+
 生成一次状态诊断：
 
 ```powershell
@@ -186,12 +208,16 @@ test-output/*.png         外观与设置预览
 | `Program.cs` | 入口、单实例、诊断与自测命令 |
 | `InputState.cs`、`Native.cs` | 输入模式、Caps / Shift、原生调用 |
 | `Overlay.cs`、`StatusTray.cs` | 固定悬浮窗、通知区域、菜单 |
-| `CaretTracker.cs`、`CaretOverlay.cs` | 光标几何位置、计时和跟随窗口 |
+| `CaretTracker.cs`、`AutomationCaret.cs`、`JavaCaret.cs` | Windows / UIA / Java 光标几何位置 |
+| `CaretOverlay.cs`、`BubblePainter.cs` | 跟随计时、位置与圆角气泡 |
+| `JavaSupportForm.cs` | Java 桥接启用入口 |
 | `CompactPainter.cs`、`LayeredSurface.cs` | 平滑文字与逐像素透明合成 |
 | `*Settings*.cs`、`ColorValue.cs` | 偏好保存、颜色和跟随设置 |
 | `SelfTests.cs`、`FollowTests.cs` | 自动检查和界面预览 |
 
-源文件位于 `src/`。约每 100 ms 轮询一次状态，IME 查询设置超时；MSAA / UI Automation 查询使用单独后台线程，过期位置丢弃。退出时不等待无响应的外部辅助功能提供者。
+源文件位于 `src/`。约每 100 ms 轮询一次状态，IME 查询设置超时；MSAA / UI Automation 与 Java 桥接分别使用后台线程，Java 线程持续处理桥接消息，过期位置丢弃。退出时不等待无响应的外部辅助功能提供者。
+
+Java 和现代文本接口参考：[Oracle Java Access Bridge](https://docs.oracle.com/en/java/javase/17/access/java-access-bridge-api.html)、[JetBrains 辅助功能设置](https://www.jetbrains.com/help/idea/accessibility.html)、[Microsoft GetCaretRange](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationtextpattern2-getcaretrange)。
 
 实现参考 Microsoft 文档：[GetGUIThreadInfo](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getguithreadinfo)、[ImmGetDefaultIMEWnd](https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immgetdefaultimewnd)、[UpdateLayeredWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-updatelayeredwindow)、[TextPatternRange.GetBoundingRectangles](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.text.textpatternrange.getboundingrectangles)、[UI Automation 线程说明](https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-threading-issues)。
 

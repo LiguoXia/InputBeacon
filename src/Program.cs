@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyTitle("键盘状态")]
 [assembly: AssemblyDescription("当前窗口中英文输入模式与 Caps Lock / Shift 悬浮指示器")]
 [assembly: AssemblyProduct("InputBeacon")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyFileVersion("1.4.0.0")]
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8")]
 
 namespace InputBeacon
@@ -29,7 +29,7 @@ namespace InputBeacon
                 if (args.Length < 2) return 2;
                 string diagnostic;
                 InputState state = new InputProbe().Read(out diagnostic);
-                File.WriteAllText(args[1], "InputBeacon 1.3\r\n" + diagnostic + "\r\nCaps=" + state.Caps + "\r\nShift=" + state.Shift, Encoding.UTF8);
+                File.WriteAllText(args[1], "InputBeacon 1.4\r\n" + diagnostic + "\r\nCaps=" + state.Caps + "\r\nShift=" + state.Shift, Encoding.UTF8);
                 return 0;
             }
             if (args.Length > 0) return 2;

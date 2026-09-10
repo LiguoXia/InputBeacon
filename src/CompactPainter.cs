@@ -84,7 +84,7 @@ namespace InputBeacon
             }
         }
 
-        private static void DrawGlyph(Graphics graphics, string text, string familyName, float emSize,
+        internal static void DrawGlyph(Graphics graphics, string text, string familyName, float emSize,
             FontStyle style, RectangleF bounds, Color color)
         {
             using (var family = new FontFamily(familyName))

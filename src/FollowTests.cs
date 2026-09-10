@@ -42,13 +42,16 @@ namespace InputBeacon
             }
             File.WriteAllText(settingsPath, "FollowCaret=1\nFollowSeconds=-1");
             check("Invalid follow duration defaults to three seconds", Settings.Load(settingsPath).FollowSeconds == 3);
-            Size size = new Size(84, 36);
+            Size size = new Size(72, 34);
             Rectangle area = new Rectangle(0, 0, 1920, 1080);
-            check("Hint appears above right of insertion caret", CaretOverlay.Position(new Rectangle(500, 500, 1, 22), size, area, 6) == new Point(507, 458));
-            check("Hint flips left at right edge", CaretOverlay.Position(new Rectangle(1910, 500, 1, 22), size, area, 6) == new Point(1820, 458));
-            check("Hint flips below at top edge", CaretOverlay.Position(new Rectangle(500, 0, 1, 22), size, area, 6) == new Point(507, 28));
-            check("Follow supports negative monitor coordinates", CaretOverlay.Position(new Rectangle(-1850, 500, 1, 22), size, new Rectangle(-1920, 0, 1920, 1080), 6) == new Point(-1843, 458));
+            check("Bubble tail stays close to insertion caret", CaretOverlay.Position(new Rectangle(500, 500, 1, 22), size, area, 1) == new Point(489, 465));
+            check("Hint flips left at right edge", CaretOverlay.Position(new Rectangle(1890, 500, 1, 22), size, area, 1) == new Point(1830, 465));
+            check("Bubble stays fully inside extreme right edge", CaretOverlay.Position(new Rectangle(1910, 500, 1, 22), size, area, 1).X == 1848);
+            check("Hint flips below at top edge", CaretOverlay.Position(new Rectangle(500, 0, 1, 22), size, area, 1) == new Point(489, 23));
+            check("Follow supports negative monitor coordinates", CaretOverlay.Position(new Rectangle(-1850, 500, 1, 22), size, new Rectangle(-1920, 0, 1920, 1080), 1) == new Point(-1861, 465));
             check("Invalid caret geometry is rejected", !CaretTracker.IsCaretRectangle(Rectangle.Empty) && !CaretTracker.IsCaretRectangle(new Rectangle(10, 10, 1000, 20)));
+            CheckCompatibility(check);
+            CheckBubble(check, folder);
 
             using (var dialog = new FollowSettingsForm(true, 3))
             {
@@ -70,6 +73,51 @@ namespace InputBeacon
                 dialog.Close();
             }
             TestNativeCaret(check, folder);
+        }
+
+        private static void CheckCompatibility(Action<string, bool> check)
+        {
+            Rectangle caret;
+            check("UIA accepts collapsed zero-width caret", AutomationCaret.FromBounds(new double[] { 20, 30, 0, 18 }, false, out caret) && caret == new Rectangle(20, 30, 1, 18));
+            check("UIA uses character right edge at document end", AutomationCaret.FromBounds(new double[] { -200, 30, 9, 18 }, true, out caret) && caret.X == -191);
+            check("UIA rejects empty and multi-line ranges", !AutomationCaret.FromBounds(new double[0], false, out caret) && !AutomationCaret.FromBounds(new double[8], false, out caret));
+            check("UIA rejects non-finite and oversized geometry", !AutomationCaret.FromBounds(new double[] { double.NaN, 1, 0, 20 }, false, out caret) && !AutomationCaret.FromBounds(new double[] { 1, 1, 0, 300 }, false, out caret));
+            var sample = new CaretSample { Foreground = new IntPtr(1), Focus = new IntPtr(2), Timestamp = 1000, Valid = true };
+            check("Recent caret sample can be displayed", CaretTracker.Fresh(sample, new IntPtr(1), new IntPtr(2), 1349));
+            check("Expired caret disappears", !CaretTracker.Fresh(sample, new IntPtr(1), new IntPtr(2), 1350));
+            check("Focus changes never reuse a previous control caret", !CaretTracker.Fresh(sample, new IntPtr(1), new IntPtr(3), 1001) && !CaretTracker.Fresh(sample, new IntPtr(3), new IntPtr(2), 1001));
+            check("Java bridge structures match native ABI", Marshal.SizeOf(typeof(JavaCaret.TextInfo)) == 12 && Marshal.SizeOf(typeof(JavaCaret.TextRectangle)) == 16);
+            var value = new JavaCaret.TextRectangle { X = -1, Y = -30, Width = 0, Height = 20 };
+            check("Java supports caret on negative monitor coordinates", JavaCaret.Valid(value) && JavaCaret.ToCaret(value, false) == new Rectangle(-1, -30, 1, 20));
+            value.Height = 0;
+            check("Java rejects an unavailable caret", !JavaCaret.Valid(value));
+        }
+
+        private static void CheckBubble(Action<string, bool> check, string folder)
+        {
+            using (var preview = new Bitmap(480, 220))
+            using (Graphics g = Graphics.FromImage(preview))
+            {
+                g.Clear(Color.FromArgb(244, 245, 248));
+                using (var dark = new SolidBrush(Color.FromArgb(40, 43, 50))) g.FillRectangle(dark, 240, 0, 240, 220);
+                for (int i = 0; i < 4; i++)
+                    using (Bitmap bubble = BubblePainter.Render(new Size(108, 51), new InputState { Mode = i % 2 == 0 ? InputMode.Chinese : InputMode.English, Caps = i > 1 }, null, i % 2 != 0, i > 1))
+                    {
+                        check("Bubble transparent corners " + i, bubble.GetPixel(0, 0).A < 20 && bubble.GetPixel(bubble.Width - 1, bubble.Height - 1).A < 20);
+                        check("Bubble panel remains translucent " + i, bubble.GetPixel(54, 20).A > 200 && bubble.GetPixel(54, 20).A < 255);
+                        g.DrawImageUnscaled(bubble, i % 2 * 240 + 66, i / 2 * 100 + 28);
+                    }
+                preview.Save(Path.Combine(folder, "bubble-preview.png"), ImageFormat.Png);
+            }
+            using (var dialog = new JavaSupportForm())
+            {
+                dialog.Show();
+                Application.DoEvents();
+                bool fits = true;
+                foreach (Control control in dialog.Controls) fits &= dialog.ClientRectangle.Contains(control.Bounds);
+                check("Java support dialog controls fit", fits);
+                dialog.Close();
+            }
         }
 
         private static void TestNativeCaret(Action<string, bool> check, string folder)
@@ -97,6 +145,27 @@ namespace InputBeacon
                 check("Read real native TextBox caret", read && CaretTracker.TryNative(info, out first));
                 // Assign explicitly because the short-circuit check above does not imply definite assignment.
                 CaretTracker.TryNative(info, out first);
+                // Exercise the actual native COM interface and its method order on
+                // our own control. Keep pumping the UI while its MTA client runs.
+                string automationStatus = null;
+                Rectangle automationBounds = Rectangle.Empty;
+                IntPtr editorHandle = editor.Handle, boxHandle = box.Handle;
+                var automationThread = new System.Threading.Thread(delegate()
+                {
+                    using (var reader = new AutomationCaret())
+                    {
+                        reader.TryReadControl(editorHandle, boxHandle, out automationBounds);
+                        automationStatus = reader.Status;
+                    }
+                });
+                automationThread.SetApartmentState(System.Threading.ApartmentState.MTA);
+                automationThread.IsBackground = true;
+                automationThread.Start();
+                long deadline = CaretTracker.Now + 5000;
+                while (automationThread.IsAlive && CaretTracker.Now < deadline) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
+                File.WriteAllText(Path.Combine(folder, "uia-fixture.txt"), automationStatus + " " + automationBounds);
+                check("Native UIA COM client reaches our real TextBox provider", !automationThread.IsAlive && (automationStatus == "UIA TextPattern2" || automationStatus == "UIA: TextPattern2 unavailable" || automationStatus == "UIA: caret inactive"));
+                if (automationStatus == "UIA TextPattern2") check("TextPattern2 agrees with native insertion caret", Math.Abs(automationBounds.X - first.X) <= 2 && Math.Abs(automationBounds.Y - first.Y) <= 2);
                 var sample = new CaretSample { Foreground = editor.Handle, Focus = box.Handle, Bounds = first, Valid = true };
                 var settings = new Settings { FollowCaret = true, FollowSeconds = 0 };
                 var state = new InputState { Mode = InputMode.English };
@@ -128,7 +197,7 @@ namespace InputBeacon
                     // Layered windows are not included by DrawToBitmap. Composite its exact
                     // renderer at the measured native caret position for the documentation preview.
                     using (Graphics graphics = Graphics.FromImage(screenshot))
-                    using (Bitmap hint = CardPainter.Render(follower.Size, state))
+                    using (Bitmap hint = BubblePainter.Render(follower.Size, state, null, false, false))
                         graphics.DrawImageUnscaled(hint, follower.Left - editor.Left, follower.Top - editor.Top);
                     screenshot.Save(Path.Combine(folder, "follow-preview.png"), ImageFormat.Png);
                 }

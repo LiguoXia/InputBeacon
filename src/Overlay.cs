@@ -146,6 +146,13 @@ namespace InputBeacon
             });
             menu.Items.Add(followItem);
             menu.Items.Add("跟随显示设置…", null, delegate { ShowFollowSettings(); });
+            menu.Items.Add("IDEA / Java 光标支持…", null, delegate
+            {
+                settingsDialogOpen = true;
+                if (caretOverlay != null) caretOverlay.Hide();
+                try { using (var dialog = new JavaSupportForm()) dialog.ShowDialog(this); }
+                finally { settingsDialogOpen = false; followLifetime.Reset(); }
+            });
             clickThroughItem = new ToolStripMenuItem("鼠标穿透（从托盘取消）", null, delegate
             {
                 settings.ClickThrough = !settings.ClickThrough;
@@ -193,11 +200,11 @@ namespace InputBeacon
             menu.Items.Add(startupItem);
             menu.Items.Add("使用说明", null, delegate
             {
-                MessageBox.Show("键盘状态  v1.3\n\n中 / 英：当前窗口的中文 / 英文输入模式。\nA / a：英文字母大写 / 小写。\n字母下的小圆点：Caps Lock 已开启。\n小箭头 ↑：按住 Shift，大小写临时反转。\n中 / 英下的小圆点：全角输入。\n?：暂未读到输入法状态。\n\n右键 → 文字颜色：预设色、调色盘或 HEX 色值。\n右键 → 任务栏显示状态：显示中/英和 A/a 两个图标。\n右键 → 跟随显示设置：开启光标右上方提示。\n支持切换后 1～60 秒消失，或一直跟随光标。\n三种显示方式独立开关，退出后自动记住。\n图标在任务栏右侧通知区域，可能收入“^”菜单。\n可以把图标从“^”拖出来常显。\n\n悬浮窗背景完全透明；拖动文字改变位置。\n双击任一托盘图标可隐藏 / 显示悬浮窗。\n再次运行 exe 可找回窗口。\n\n无需安装、无需联网。不会保存输入内容。", "键盘状态", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("键盘状态  v1.4\n\n中 / 英：当前窗口的中文 / 英文输入模式。\nA / a：英文字母大写 / 小写。\n字母下的小圆点：Caps Lock 已开启。\n小箭头 ↑：按住 Shift，大小写临时反转。\n中 / 英下的小圆点：全角输入。\n?：暂未读到输入法状态。\n\n右键 → 文字颜色：预设色、调色盘或 HEX 色值。\n右键 → 任务栏显示状态：显示中/英和 A/a 两个图标。\n右键 → 跟随显示设置：开启光标右上方提示。\n支持切换后 1～60 秒消失，或一直跟随光标。\n右键 → IDEA / Java 光标支持：启用后重新打开 IDEA。\n三种显示方式独立开关，退出后自动记住。\n图标在任务栏右侧通知区域，可能收入“^”菜单。\n可以把图标从“^”拖出来常显。\n\n悬浮窗背景完全透明；拖动文字改变位置。\n双击任一托盘图标可隐藏 / 显示悬浮窗。\n再次运行 exe 可找回窗口。\n\n无需安装、无需联网。不会保存输入内容。", "键盘状态", MessageBoxButtons.OK, MessageBoxIcon.Information);
             });
             menu.Items.Add("复制状态诊断", null, delegate
             {
-                try { Clipboard.SetText("InputBeacon 1.3\r\n" + lastDiagnostic + "\r\nCaps=" + state.Caps + "\r\nShift=" + state.Shift); }
+                try { Clipboard.SetText("InputBeacon 1.4\r\n" + lastDiagnostic + "\r\nCaps=" + state.Caps + "\r\nShift=" + state.Shift + "\r\nFollow=" + settings.FollowCaret + "\r\n" + (caretTracker == null ? "Caret tracker idle" : caretTracker.Status)); }
                 catch (System.Runtime.InteropServices.ExternalException) { }
             });
             menu.Items.Add(new ToolStripSeparator());
