@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>InputBeacon 本地输入测试</title>
+<style>
+body{background:#101722;color:#edf5ff;font:18px 'Microsoft YaHei UI',sans-serif;margin:64px auto;max-width:840px}h1{font-size:28px}p{color:#a6b6c9;line-height:1.8}textarea{box-sizing:border-box;width:100%;height:220px;background:#172334;border:1px solid #415976;border-radius:12px;padding:24px;color:#75e5c7;font:22px Consolas,monospace}#info{padding-top:20px;color:#ffc970;font:16px Consolas,monospace}
+</style>
+<h1>键盘状态 · 本地输入测试</h1>
+<p>在下方输入框中切换中英文、Caps Lock 和 Shift，核对状态提示。开启光标跟随后，输入、换行并用方向键移动光标；分别检查定时消失和一直跟随。<br>这里是本地测试页，输入内容不会发送到网络。</p>
+<textarea aria-label="本地键盘测试输入框" spellcheck="false" placeholder="点击这里开始测试"></textarea>
+<div id="info">等待键盘输入</div>
+<script>
+document.querySelector('textarea').addEventListener('keydown',e=>{document.querySelector('#info').textContent='Browser event: key='+e.key+' | CapsLock='+e.getModifierState('CapsLock')+' | Shift='+e.shiftKey+' | composing='+e.isComposing});
+</script>
+</html>
