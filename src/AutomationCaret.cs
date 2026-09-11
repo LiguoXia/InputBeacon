@@ -85,9 +85,33 @@ namespace InputBeacon
                 character = caret.Clone();
                 character.ExpandToEnclosingUnit(0); // TextUnit_Character
                 bool atEnd = caret.CompareEndpoints(0, character, 1) == 0;
-                return FromBounds(character.GetBoundingRectangles(), atEnd, out rectangle);
+                if (FromBounds(character.GetBoundingRectangles(), atEnd, out rectangle)) return true;
             }
-            finally { Release(character); }
+            finally { Release(character); character = null; }
+
+            // Some XAML providers keep an expanded degenerate range empty.
+            // Move only endpoints of a cloned range; never the user's selection.
+            try
+            {
+                character = caret.Clone();
+                if (character.MoveEndpointByUnit(1, 0, 1) > 0 &&
+                    FromBounds(character.GetBoundingRectangles(), false, out rectangle)) return true;
+            }
+            finally { Release(character); character = null; }
+
+            UiaRange line = null;
+            try
+            {
+                line = caret.Clone();
+                line.ExpandToEnclosingUnit(3); // TextUnit_Line
+                // Do not put a blank line's hint at the end of the previous line.
+                if (caret.CompareEndpoints(0, line, 0) <= 0) return false;
+                character = caret.Clone();
+                return character.MoveEndpointByUnit(0, 0, -1) < 0 &&
+                    character.CompareEndpoints(0, line, 0) >= 0 &&
+                    FromBounds(character.GetBoundingRectangles(), true, out rectangle);
+            }
+            finally { Release(character); Release(line); }
         }
 
         internal static bool FromBounds(double[] bounds, bool atEnd, out Rectangle rectangle)
@@ -146,5 +170,7 @@ namespace InputBeacon
         void ExpandToEnclosingUnit(int unit);
         void FindAttribute(); void FindText(); void GetAttributeValue();
         [return: MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_R8)] double[] GetBoundingRectangles();
+        void GetEnclosingElement(); void GetText(); void Move();
+        int MoveEndpointByUnit(int endpoint, int unit, int count);
     }
 }

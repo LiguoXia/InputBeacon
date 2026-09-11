@@ -15,13 +15,18 @@ namespace InputBeacon
             var lifetime = new FollowLifetime();
             var state = new InputState { Mode = InputMode.English };
             lifetime.Observe(state, 3, 100);
-            check("Follow appears when enabled with a caret", lifetime.ShouldShow(true, 3, true, 100));
+            check("Starting timed follow does not invent a state change", !lifetime.ShouldShow(true, 3, true, 100));
+            state.Caps = true;
+            lifetime.Observe(state, 3, 200);
+            check("A real case change starts the first hint", lifetime.ShouldShow(true, 3, true, 200));
             lifetime.Observe(state, 3, 2500);
-            check("Moving caret does not extend a timed hint", !lifetime.ShouldShow(true, 3, true, 3100));
+            check("Moving caret does not extend a timed hint", !lifetime.ShouldShow(true, 3, true, 3200));
             state.Mode = InputMode.Chinese;
             lifetime.Observe(state, 3, 4000);
-            check("Input mode change retriggers hint", lifetime.ShouldShow(true, 3, true, 6999));
-            state.Caps = true;
+            check("Single IME sample does not retrigger hint", !lifetime.ShouldShow(true, 3, true, 4000));
+            lifetime.Observe(state, 3, 4200);
+            check("Confirmed input mode change retriggers hint", lifetime.ShouldShow(true, 3, true, 7199) && !lifetime.ShouldShow(true, 3, true, 7200));
+            state.Caps = false;
             lifetime.Observe(state, 3, 6000);
             check("Caps change resets hint duration", lifetime.ShouldShow(true, 3, true, 8999) && !lifetime.ShouldShow(true, 3, true, 9000));
             state.Shift = true;
@@ -32,7 +37,8 @@ namespace InputBeacon
             check("Follow switch overrides always mode", !lifetime.ShouldShow(false, 0, true, 100000));
             lifetime.Reset();
             lifetime.Observe(state, 3, 200000);
-            check("Enabling follow starts a fresh hint", lifetime.ShouldShow(true, 3, true, 200000));
+            check("Reapplying follow settings establishes a silent baseline", !lifetime.ShouldShow(true, 3, true, 200000));
+            CheckSpuriousTriggers(check);
             foreach (int seconds in new[] { 0, 1, 3, 60 })
             {
                 var settings = new Settings { FollowCaret = true, FollowSeconds = seconds, ShowFloating = false, ShowTaskbarStatus = false };
@@ -75,6 +81,71 @@ namespace InputBeacon
             TestNativeCaret(check, folder);
         }
 
+        private static void CheckSpuriousTriggers(Action<string, bool> check)
+        {
+            var lifetime = new FollowLifetime();
+            var state = new InputState { Mode = InputMode.Chinese, Foreground = new IntPtr(10), Focus = new IntPtr(11) };
+            lifetime.Observe(state, 1, 0);
+            state.Mode = InputMode.Unknown;
+            lifetime.Observe(state, 1, 2000);
+            state.Mode = InputMode.Chinese;
+            lifetime.Observe(state, 1, 2200);
+            lifetime.Observe(state, 1, 2500);
+            check("IME failure and recovery never display a bubble", lifetime.TriggerCount == 0 && !lifetime.ShouldShow(true, 1, true, 2500));
+            state.FullWidth = true;
+            lifetime.Observe(state, 1, 2600);
+            state.FullWidth = false;
+            lifetime.Observe(state, 1, 2700);
+            check("Full-width flag fluctuations do not trigger follow", lifetime.TriggerCount == 0);
+            state.Mode = InputMode.English;
+            lifetime.Observe(state, 1, 2800);
+            state.Mode = InputMode.Chinese;
+            lifetime.Observe(state, 1, 2900);
+            check("A transient English sample during composition is ignored", lifetime.TriggerCount == 0);
+            state.Mode = InputMode.English;
+            lifetime.Observe(state, 1, 3000);
+            lifetime.Observe(state, 1, 3100);
+            check("Mode switch waits for stable evidence", lifetime.TriggerCount == 0);
+            lifetime.Observe(state, 1, 3200);
+            check("A real stable mode switch displays once", lifetime.TriggerCount == 1 && lifetime.ShouldShow(true, 1, true, 4199));
+            state.Focus = new IntPtr(12);
+            state.Mode = InputMode.Chinese;
+            lifetime.Observe(state, 1, 3300);
+            lifetime.Observe(state, 1, 3600);
+            check("Focus changes establish a silent baseline and hide old bubble", lifetime.TriggerCount == 1 && !lifetime.ShouldShow(true, 1, true, 3600));
+            state.Foreground = new IntPtr(20);
+            state.Focus = new IntPtr(21);
+            state.Mode = InputMode.Unknown;
+            lifetime.Observe(state, 1, 3700);
+            state.Mode = InputMode.English;
+            lifetime.Observe(state, 1, 3800);
+            lifetime.Observe(state, 1, 4100);
+            check("Returning from an unknown foreground context is not a switch", lifetime.TriggerCount == 1);
+            state.Caps = true;
+            lifetime.Observe(state, 1, 4200);
+            check("Caps change remains immediate", lifetime.TriggerCount == 2 && lifetime.ShouldShow(true, 1, true, 4200));
+            state.Shift = true;
+            lifetime.Observe(state, 1, 4300);
+            check("Shift case reversal remains immediate", lifetime.TriggerCount == 3);
+            state.Caps = false;
+            state.Shift = false;
+            lifetime.Observe(state, 1, 4400);
+            check("Unchanged effective letter case does not extend countdown", lifetime.TriggerCount == 3 && !lifetime.ShouldShow(true, 1, true, 5300));
+            check("Always mode is independent of trigger suppression", lifetime.ShouldShow(true, 0, true, 10000));
+
+            state.Mode = InputMode.Chinese;
+            lifetime.Observe(state, 1, 11000);
+            lifetime.Observe(state, 1, 13000);
+            check("A polling pause cannot confirm a pending mode change", lifetime.TriggerCount == 3);
+            lifetime.Observe(state, 1, 13200);
+            check("Mode can confirm after polling resumes", lifetime.TriggerCount == 4);
+            state.Mode = InputMode.Unknown;
+            lifetime.Observe(state, 1, 13300);
+            state.Mode = InputMode.Chinese;
+            lifetime.Observe(state, 1, 13400);
+            check("Unknown recovery does not extend an active countdown", lifetime.TriggerCount == 4 && !lifetime.ShouldShow(true, 1, true, 14200));
+        }
+
         private static void CheckCompatibility(Action<string, bool> check)
         {
             Rectangle caret;
@@ -82,6 +153,17 @@ namespace InputBeacon
             check("UIA uses character right edge at document end", AutomationCaret.FromBounds(new double[] { -200, 30, 9, 18 }, true, out caret) && caret.X == -191);
             check("UIA rejects empty and multi-line ranges", !AutomationCaret.FromBounds(new double[0], false, out caret) && !AutomationCaret.FromBounds(new double[8], false, out caret));
             check("UIA rejects non-finite and oversized geometry", !AutomationCaret.FromBounds(new double[] { double.NaN, 1, 0, 20 }, false, out caret) && !AutomationCaret.FromBounds(new double[] { 1, 1, 0, 300 }, false, out caret));
+            var range = new GeometryRange(3, 3, false);
+            check("Empty UIA end range uses preceding character geometry", AutomationCaret.TryRange(range, out caret) && caret == new Rectangle(130, 50, 1, 20));
+            check("UIA geometry fallback never moves original caret", range.Start == 3 && range.End == 3);
+            range = new GeometryRange(1, 3, false);
+            check("Empty UIA middle range expands by endpoint", AutomationCaret.TryRange(range, out caret) && caret.X == 110);
+            range = new GeometryRange(0, 3, false);
+            check("UIA fallback locates first character", AutomationCaret.TryRange(range, out caret) && caret.X == 100);
+            range = new GeometryRange(0, 0, false);
+            check("Empty document without geometry does not invent a caret", !AutomationCaret.TryRange(range, out caret));
+            range = new GeometryRange(3, 3, true);
+            check("Blank final line does not reuse previous line geometry", !AutomationCaret.TryRange(range, out caret));
             var sample = new CaretSample { Foreground = new IntPtr(1), Focus = new IntPtr(2), Timestamp = 1000, Valid = true };
             check("Recent caret sample can be displayed", CaretTracker.Fresh(sample, new IntPtr(1), new IntPtr(2), 1349));
             check("Expired caret disappears", !CaretTracker.Fresh(sample, new IntPtr(1), new IntPtr(2), 1350));
@@ -91,6 +173,45 @@ namespace InputBeacon
             check("Java supports caret on negative monitor coordinates", JavaCaret.Valid(value) && JavaCaret.ToCaret(value, false) == new Rectangle(-1, -30, 1, 20));
             value.Height = 0;
             check("Java rejects an unavailable caret", !JavaCaret.Valid(value));
+        }
+
+        // Provider fixture that reproduces empty degenerate/expanded ranges.
+        // No text or control selection APIs are implemented or called.
+        private sealed class GeometryRange : UiaRange
+        {
+            internal int Start, End;
+            private readonly int length;
+            private readonly bool finalBlankLine;
+            internal GeometryRange(int caret, int length, bool blank) { Start = End = caret; this.length = length; finalBlankLine = blank; }
+            public UiaRange Clone() { return (GeometryRange)MemberwiseClone(); }
+            public int CompareEndpoints(int endpoint, UiaRange target, int targetEndpoint)
+            {
+                var other = (GeometryRange)target;
+                return (endpoint == 0 ? Start : End).CompareTo(targetEndpoint == 0 ? other.Start : other.End);
+            }
+            public void ExpandToEnclosingUnit(int unit)
+            {
+                if (unit == 3) { Start = finalBlankLine && Start == length ? length : 0; End = length; }
+            }
+            public double[] GetBoundingRectangles()
+            {
+                return Start == End ? new double[0] : new double[] { 100 + Start * 10, 50, (End - Start) * 10, 20 };
+            }
+            public int MoveEndpointByUnit(int endpoint, int unit, int count)
+            {
+                int before = endpoint == 0 ? Start : End;
+                int after = Math.Max(0, Math.Min(length, before + count));
+                if (endpoint == 0) { Start = after; End = Math.Max(End, Start); }
+                else { End = after; Start = Math.Min(Start, End); }
+                return after - before;
+            }
+            public void Compare() { throw new NotSupportedException(); }
+            public void FindAttribute() { throw new NotSupportedException(); }
+            public void FindText() { throw new NotSupportedException(); }
+            public void GetAttributeValue() { throw new NotSupportedException(); }
+            public void GetEnclosingElement() { throw new NotSupportedException(); }
+            public void GetText() { throw new NotSupportedException(); }
+            public void Move() { throw new NotSupportedException(); }
         }
 
         private static void CheckBubble(Action<string, bool> check, string folder)

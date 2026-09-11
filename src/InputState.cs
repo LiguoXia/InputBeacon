@@ -10,6 +10,7 @@ namespace InputBeacon
     {
         public InputMode Mode;
         public bool Caps, Shift, FullWidth;
+        internal IntPtr Foreground, Focus;
         public string OtherLabel = "其他";
         public bool Uppercase { get { return Caps ^ Shift; } }
         public string ModeTitle
@@ -121,6 +122,7 @@ namespace InputBeacon
             InputState state = InputState.Resolve(language, Native.ImmIsIME(layout), gotOpen, open, gotConversion, conversion);
             // Discard a sample taken across a focus switch instead of showing another app's mode.
             if (Native.GetForegroundWindow() != foreground) state = new InputState();
+            else { state.Foreground = foreground; state.Focus = target; }
             diagnostic = string.Format(CultureInfo.InvariantCulture,
                 "ForegroundClass={0}\r\nFocusClass={1}\r\nLayout=0x{2:X}\r\nImeWindow=0x{3:X}\r\nOpen={4}\r\nConversion={5}\r\nMode={6}",
                 Native.ClassName(foreground), Native.ClassName(target), layout.ToInt64(), ime.ToInt64(),

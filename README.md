@@ -2,7 +2,7 @@
 
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
-单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.0**。
+单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.1**。
 
 **[下载最新版本](https://github.com/LiguoXia/InputBeacon/releases/latest)** · [版本记录](CHANGELOG.md) · [反馈问题](https://github.com/LiguoXia/InputBeacon/issues)
 
@@ -13,7 +13,7 @@
 ## 下载与开始使用
 
 1. 打开本仓库的 **[Releases](https://github.com/LiguoXia/InputBeacon/releases/latest)**，选择最新版本。
-2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.0/InputBeacon-v1.4.0-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
+2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.1/InputBeacon-v1.4.1-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
 3. 双击 EXE。第一次运行默认显示悬浮窗；任务栏状态、光标跟随和开机启动默认关闭。
 4. 点击终端输入区，再切换中英文、Caps Lock 或 Shift，观察提示。
 5. 右键悬浮文字或通知区域图标，调整设置。
@@ -75,7 +75,9 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 ![跟随气泡的浅色和深色背景效果](docs/images/bubble-preview.png)
 
-定时模式下，移动光标不会延长倒计时；再次切换状态会重新计时。开启功能或应用跟随设置时，也会显示一次当前状态。设置在下次启动时保留。
+定时模式下，移动光标不会延长倒计时；确认切换状态后重新计时。启动、切换窗口或输入框、重新应用设置时只建立当前状态基准，不主动弹出气泡。需要立即检查位置时可选择“一直显示”。设置在下次启动时保留。
+
+**1.4.1 的防误触发规则：**中英文变化需连续稳定至少 200 ms 才弹出气泡；实际 A / a 变化仍在下一次轮询时提示。短暂的 `?`、读取失败后的恢复、全角标记波动，以及 Caps / Shift 组合变化但 A / a 没变，都不会触发或延长提示。此修复针对微信使用微软拼音时报告的误弹路径；固定悬浮窗与任务栏仍正常刷新状态。“一直显示”不受此触发过滤影响。
 
 **跟随的是文本插入光标，不是鼠标指针。** 软件未提供可靠光标位置、失去可用输入光标，或正在操作本工具的菜单、设置对话框时，提示会隐藏。程序不会根据鼠标位置猜测光标位置。
 
@@ -118,7 +120,7 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 中英文状态取决于输入法的 Windows IME 兼容接口。第三方输入法、特殊 TSF 模式或高权限窗口可能不提供状态，也可能返回陈旧状态。`?` 表示读取失败；API 返回成功并不等于所有第三方输入法都已验证准确。
 
-Windows 光标位置尝试 Win32 原生插入光标、MSAA 辅助功能光标、原生 UI Automation **TextPattern2 / GetCaretRange** 和旧版文本范围。1.4 补充现代资源管理器输入框的光标接口、跨进程宿主识别和系统 MSAA 光标回退，并修正首次慢查询导致位置持续过期的问题。浏览器普通输入框、网页终端、Canvas 自绘终端和不同 SSH 客户端提供的接口可能不同。只绘制画面且不提供光标几何信息的终端，跟随提示可能无法显示，此时可继续使用固定悬浮窗和任务栏状态。
+Windows 光标位置尝试 Win32 原生插入光标、MSAA 辅助功能光标、原生 UI Automation **TextPattern2 / GetCaretRange** 和旧版文本范围。1.4 补充现代资源管理器输入框的光标接口、跨进程宿主识别和系统 MSAA 光标回退。1.4.1 在空光标范围时尝试相邻字符的几何位置，避免该回退将空行定位到上一行；开启跟随后，提示隐藏期间也保持后台定位连接，改善短倒计时的首次显示。浏览器普通输入框、网页终端、Canvas 自绘终端和不同 SSH 客户端提供的接口可能不同。只绘制画面且不提供光标几何信息的终端，跟随提示可能无法显示，此时可继续使用固定悬浮窗和任务栏状态。
 
 ### IntelliJ IDEA / Java 编辑器
 
@@ -134,7 +136,7 @@ IDEA 的 Java 编辑区通过 **Java Access Bridge** 提供光标位置。普通
 
 程序不会修改浏览器启动参数或辅助功能设置。目标应用以管理员权限运行时，普通权限程序可能读不到状态；确有需要时可让两者使用相同权限。安全桌面、独占全屏和特殊远程环境不保证显示。
 
-**验证范围：**本地自动检查覆盖模式解析、设置保存、颜色、透明合成、通知区域图标、跟随计时与边缘避让、真实 WinForms TextBox 光标和原生 UIA COM 连接，以及跟随窗口不改变前台焦点。另在 IDEA 2024.1.7 所带的 64 位 JetBrains Runtime 上，通过独立 Java 输入框验证水平移动、换行、文末、空文本及恢复输入，共 6 个阶段。当前未完成 IDEA 编辑区和资源管理器地址栏、搜索框的端到端气泡显示验收；浏览器 / SSH、第三方输入法及跨屏混合 DPI 的实际组合也仍需人工验证。
+**验证范围：**本地自动检查覆盖模式解析、设置保存、颜色、透明合成、通知区域图标、跟随计时与边缘避让、真实 WinForms TextBox 光标和原生 UIA COM 连接，以及跟随窗口不改变前台焦点。1.4.1 增加未知状态恢复、短暂中英跳变、焦点变化、轮询暂停、有效大小写不变和空 UIA 范围的回归检查。另在 IDEA 2024.1.7 所带的 64 位 JetBrains Runtime 上，通过独立 Java 输入框验证水平移动、换行、文末、空文本及恢复输入，共 6 个阶段。当前未完成新版在微信 + 微软拼音、IDEA 编辑区和资源管理器地址栏、搜索框的端到端验收；自动检查通过不等于这些实际组合已全部验证。
 
 ## 常见问题
 
@@ -145,6 +147,8 @@ IDEA 的 Java 编辑区通过 **Java Access Bridge** 提供光标位置。普通
 **没有跟随提示？** 确认已启用；定时模式需要切换一次状态才重新出现。可改为“一直显示”检查。若固定状态正常但跟随不出现，通常是应用未提供可用光标位置。
 
 **提示很快消失？** 定时模式按最后一次状态变化计时，移动光标不延时。可增加秒数，或选择“一直显示”。
+
+**微信里未切换也突然弹出？** 请升级到 1.4.1，并先确认使用的是定时模式。此版不把状态读取失败、恢复或焦点变化当成切换。若仍出现，右键 → **复制状态诊断**，附上微信和输入法版本、出现时的操作。诊断含显示时长、触发次数和最后一次触发原因，不含聊天内容。
 
 **浅色文字看不清？** 固定悬浮窗没有背景板；跟随气泡使用浅色半透明底。可以选择深色文字或恢复默认蓝色配色。
 
@@ -195,6 +199,15 @@ test-output/*.png         外观与设置预览
 
 测试仅为自己创建的 Java 窗口启用桥接，不修改用户的全局 Java 设置；自动关闭测试窗口，结果写入 `test-output/java/java-results.txt`。
 
+人工检查光标位置和触发原因时，可构建独立测试面板：
+
+```powershell
+.\tests\build-live-preview.ps1
+.\build\live-test\InputBeacon-preview.exe
+```
+
+勾选“持续显示”检查输入、换行和光标移动；取消勾选可检查 1 秒定时提示。面板显示最近的光标坐标、输入状态和触发计数，不读取输入文本，也不修改已保存的显示偏好。测试结束后关闭面板即可。
+
 生成一次状态诊断：
 
 ```powershell
@@ -217,7 +230,7 @@ test-output/*.png         外观与设置预览
 
 源文件位于 `src/`。约每 100 ms 轮询一次状态，IME 查询设置超时；MSAA / UI Automation 与 Java 桥接分别使用后台线程，Java 线程持续处理桥接消息，过期位置丢弃。退出时不等待无响应的外部辅助功能提供者。
 
-Java 和现代文本接口参考：[Oracle Java Access Bridge](https://docs.oracle.com/en/java/javase/17/access/java-access-bridge-api.html)、[JetBrains 辅助功能设置](https://www.jetbrains.com/help/idea/accessibility.html)、[Microsoft GetCaretRange](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationtextpattern2-getcaretrange)。
+Java 和现代文本接口参考：[Oracle Java Access Bridge](https://docs.oracle.com/en/java/javase/17/access/java-access-bridge-api.html)、[JetBrains 辅助功能设置](https://www.jetbrains.com/help/idea/accessibility.html)、[Microsoft GetCaretRange](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationtextpattern2-getcaretrange)、[MoveEndpointByUnit](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationtextrange-moveendpointbyunit)。
 
 实现参考 Microsoft 文档：[GetGUIThreadInfo](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getguithreadinfo)、[ImmGetDefaultIMEWnd](https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immgetdefaultimewnd)、[UpdateLayeredWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-updatelayeredwindow)、[TextPatternRange.GetBoundingRectangles](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.text.textpatternrange.getboundingrectangles)、[UI Automation 线程说明](https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-threading-issues)。
 
