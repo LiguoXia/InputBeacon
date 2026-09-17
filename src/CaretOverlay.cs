@@ -11,6 +11,9 @@ namespace InputBeacon
         private string confirmedMode, pendingMode;
         private long pendingSince, lastObserved;
         private long expires;
+        private IntPtr shownForeground, shownFocus;
+        private string shownIdentity, pendingField;
+        private long fieldSince, lastCaretObserved;
         internal string LastTrigger { get; private set; }
         internal int TriggerCount { get; private set; }
 
@@ -65,7 +68,42 @@ namespace InputBeacon
             pendingMode = null;
             Trigger(seconds, now, "Input mode confirmed");
         }
-        internal void Reset() { initialized = false; confirmedMode = pendingMode = null; expires = 0; }
+        internal void ObserveCaret(InputState state, CaretSample caret, int seconds, long now)
+        {
+            bool interrupted = now < lastCaretObserved || now - lastCaretObserved > 400;
+            lastCaretObserved = now;
+            if (interrupted) pendingField = null;
+            if (caret == null || !caret.Valid || state.Mode == InputMode.Unknown ||
+                caret.Foreground == IntPtr.Zero || caret.Focus == IntPtr.Zero ||
+                caret.Foreground != state.Foreground || caret.Focus != state.Focus)
+            { pendingField = null; return; }
+
+            bool sameWindow = shownForeground == caret.Foreground && shownFocus == caret.Focus;
+            if (sameWindow && (caret.InputIdentity == null || shownIdentity == null || caret.InputIdentity == shownIdentity))
+            {
+                // A late/temporarily unavailable UIA identity refines the baseline;
+                // it is not evidence that the user entered another input field.
+                if (caret.InputIdentity != null) shownIdentity = caret.InputIdentity;
+                pendingField = null;
+                return;
+            }
+            string field = caret.Foreground + ":" + caret.Focus + ":" + caret.InputIdentity;
+            if (field != pendingField) { pendingField = field; fieldSince = now; return; }
+            if (now - fieldSince < 200) return;
+            shownForeground = caret.Foreground;
+            shownFocus = caret.Focus;
+            shownIdentity = caret.InputIdentity;
+            pendingField = null;
+            Trigger(seconds, now, "Input field focused");
+        }
+
+        internal void Reset()
+        {
+            initialized = false;
+            confirmedMode = pendingMode = pendingField = shownIdentity = null;
+            shownForeground = shownFocus = IntPtr.Zero;
+            expires = 0;
+        }
         internal bool ShouldShow(bool enabled, int seconds, bool hasCaret, long now)
         {
             return enabled && hasCaret && (seconds == 0 || now < expires);

@@ -1,15 +1,18 @@
-# InputBeacon 1.4.1 · 跟随气泡误触发修复
+# InputBeacon 1.4.2 · 切换输入框时显示当前状态
 
-- 针对微信使用微软拼音时的误弹路径：忽略输入状态读取失败及恢复、全角标记波动、窗口或控件焦点变化；中英文变化稳定至少 200 ms 后才提示。
-- 实际 A / a 变化立即提示；输入、移动光标、启动或重新应用设置不会额外延长定时气泡。“一直显示”仍持续跟随。
-- 补充资源管理器等现代 UIA 输入框在空光标范围时的相邻字符定位回退，避免该回退将空行定位到上一行；保持后台定位连接，改善 1 秒短倒计时的首次定位。
-- 保留 72 × 34 逻辑像素的贴近光标气泡、浅色半透明圆角底、平滑尖角及阴影；保留三种显示方式独立开关与所有外观偏好。
-- 复制状态诊断增加提示时长、触发次数和原因，不包含输入文本。
+开启光标跟随并设置“若干秒后消失”后，从浏览器搜索框切换到微信输入框，即使没有切换中英文或大小写，也会显示一次当前状态，并按设置的秒数消失。切回之前的输入框也会重新提示。
 
-下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.1/InputBeacon.exe)** 双击运行，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.1/InputBeacon-v1.4.1-portable.zip)**。ZIP 内含相同程序 `键盘状态.exe`、中文使用说明和版本记录。先退出旧版再替换 EXE，已有设置保留。
+- 新输入框的有效光标稳定约 200 ms 后显示，倒计时从确认显示时开始。
+- 同一输入框内继续打字、移动光标不会重复触发；临时丢失光标、输入法未知状态恢复、全角标记波动也不会重新计时。
+- 保留中英文 / A/a 变化提示，以及“一直显示”的持续跟随行为。
+- 支持用 UI Automation 控件标识区分共享同一窗口的输入框；后台读取，不读取输入文本。未提供独立标识的自绘输入框，在同一窗口内切换时可能无法区分。
 
-**IDEA 首次使用：**右键通知区域图标 → **IDEA / Java 光标支持…** → **启用 Java 光标支持**，保存工作后完全退出并重开 IDEA；必要时在 IDEA 外观设置中开启 **Support screen readers**。桥接代码已通过独立 Java 输入框 6 阶段检查，使用 IDEA 2024.1.7 自带的 64 位 JetBrains Runtime。
+下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.2/InputBeacon.exe)** 双击运行，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.2/InputBeacon-v1.4.2-portable.zip)**。ZIP 内含相同程序 `键盘状态.exe`、中文使用说明和版本记录。
 
-**验证范围：**本版通过输入状态、误触发过滤、倒计时、空 UIA 范围、真实 WinForms 光标、透明合成和设置等自动回归。尚未完成新版在微信 + 微软拼音、IDEA 编辑区及资源管理器地址栏 / 搜索框的端到端验收；不将自动回归替代实机结论。
+**升级：**先退出旧版再运行新版，已有颜色、显示方式和时长设置保留。测试过本地 1.4.2 验证版的用户无需重新替换程序，本次发布的 EXE 与验证版完全相同。
 
-需要 Windows 10 / 11 和 .NET Framework 4.8。程序未签名，发布文件校验值见 `SHA256SUMS.txt`。详细使用方法见仓库 README。
+**验证：**通过 173 项自动检查，包括跨应用与虚拟控件切换、返回原输入框、慢定位、倒计时、防误触发，以及真实 Windows 文本框的 UIA 标识。不同浏览器、微信版本及自绘控件的兼容性仍取决于它们提供的光标接口。
+
+IDEA 编辑区需要 Java Access Bridge：右键图标 → **IDEA / Java 光标支持…**，启用后保存工作并完全退出、重开 IDEA，必要时开启 IDEA 外观设置中的 **Support screen readers**。
+
+需要 Windows 10 / 11 和 .NET Framework 4.8。程序未签名，文件校验值见 `SHA256SUMS.txt`。详细说明见仓库 README。

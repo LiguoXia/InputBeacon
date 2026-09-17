@@ -39,6 +39,7 @@ namespace InputBeacon
             lifetime.Observe(state, 3, 200000);
             check("Reapplying follow settings establishes a silent baseline", !lifetime.ShouldShow(true, 3, true, 200000));
             CheckSpuriousTriggers(check);
+            CheckFocusHints(check);
             foreach (int seconds in new[] { 0, 1, 3, 60 })
             {
                 var settings = new Settings { FollowCaret = true, FollowSeconds = seconds, ShowFloating = false, ShowTaskbarStatus = false };
@@ -146,6 +147,61 @@ namespace InputBeacon
             check("Unknown recovery does not extend an active countdown", lifetime.TriggerCount == 4 && !lifetime.ShouldShow(true, 1, true, 14200));
         }
 
+        private static void CheckFocusHints(Action<string, bool> check)
+        {
+            var lifetime = new FollowLifetime();
+            var state = new InputState { Mode = InputMode.Chinese, Foreground = new IntPtr(10), Focus = new IntPtr(11) };
+            var caret = new CaretSample { Foreground = state.Foreground, Focus = state.Focus, Valid = true, InputIdentity = "browser-field-a" };
+            Action<long> tick = delegate(long now) { lifetime.Observe(state, 2, now); lifetime.ObserveCaret(state, caret, 2, now); };
+            tick(0); tick(100);
+            check("Input focus waits for stable caret evidence", lifetime.TriggerCount == 0);
+            tick(200);
+            check("Entering a text field displays the current mode", lifetime.TriggerCount == 1 && lifetime.ShouldShow(true, 2, true, 2199));
+            caret.Bounds = new Rectangle(400, 500, 1, 20);
+            tick(1000); tick(2200);
+            check("Typing and moving inside a field do not restart its timer", lifetime.TriggerCount == 1 && !lifetime.ShouldShow(true, 2, true, 2200));
+            state.Foreground = new IntPtr(20); state.Focus = new IntPtr(21);
+            caret = new CaretSample { Foreground = state.Foreground, Focus = state.Focus, Valid = true, InputIdentity = "wechat-field" };
+            tick(2300); tick(2500);
+            check("Browser to WeChat focus displays even when mode is unchanged", lifetime.TriggerCount == 2 && lifetime.ShouldShow(true, 2, true, 4499) && !lifetime.ShouldShow(true, 2, true, 4500));
+            caret.InputIdentity = "wechat-field-b";
+            tick(4600); tick(4800);
+            check("Virtual input fields sharing an HWND are distinguished", lifetime.TriggerCount == 3);
+            caret.InputIdentity = "wechat-field";
+            tick(4900); tick(5100);
+            check("Returning to an earlier input field also displays once", lifetime.TriggerCount == 4);
+            CaretSample saved = caret;
+            caret = null; tick(5200);
+            caret = saved; tick(5400); tick(5700);
+            check("Temporary caret loss during composition does not retrigger", lifetime.TriggerCount == 4);
+            caret.InputIdentity = null; tick(5800);
+            caret.InputIdentity = "wechat-field"; tick(6000);
+            check("Temporary UIA identity loss does not retrigger", lifetime.TriggerCount == 4);
+            state.Mode = InputMode.Unknown; tick(6200);
+            state.Mode = InputMode.Chinese; tick(6400); tick(7100);
+            check("IME read recovery retains the focus countdown", lifetime.TriggerCount == 4 && !lifetime.ShouldShow(true, 2, true, 7100));
+            state.Foreground = new IntPtr(30); state.Focus = new IntPtr(31);
+            caret = null; tick(7200); tick(10000);
+            check("Non-input windows never display a focus hint", lifetime.TriggerCount == 4);
+            caret = new CaretSample { Foreground = state.Foreground, Focus = state.Focus, Valid = true };
+            tick(12000); tick(12200);
+            check("Slow caret discovery receives the full configured duration", lifetime.TriggerCount == 5 && lifetime.ShouldShow(true, 2, true, 14199));
+            caret.InputIdentity = "late-id"; tick(12300); tick(12600);
+            check("Late identity discovery does not display twice", lifetime.TriggerCount == 5);
+            caret.InputIdentity = "temporary-field"; tick(12700);
+            caret.InputIdentity = "late-id"; tick(12800);
+            check("Transient focus jitter does not display a new hint", lifetime.TriggerCount == 5);
+            caret.Focus = new IntPtr(99); tick(13000); tick(13200);
+            check("A mismatched focus sample cannot trigger a hint", lifetime.TriggerCount == 5);
+            caret.Focus = state.Focus;
+            state.Focus = new IntPtr(32);
+            caret = new CaretSample { Foreground = state.Foreground, Focus = state.Focus, Valid = true };
+            tick(14000); tick(14200);
+            check("Native text controls can trigger without UIA support", lifetime.TriggerCount == 6);
+            check("Disabled follow suppresses focus hints", !lifetime.ShouldShow(false, 2, true, 14300));
+            check("Always follow stays visible after a focus hint expires", lifetime.ShouldShow(true, 0, true, 30000));
+        }
+
         private static void CheckCompatibility(Action<string, bool> check)
         {
             Rectangle caret;
@@ -245,11 +301,13 @@ namespace InputBeacon
         {
             using (var editor = new Form { Text = "InputBeacon · 光标跟随预览", ClientSize = new Size(680, 320), StartPosition = FormStartPosition.CenterScreen })
             using (var box = new TextBox { Multiline = true, Location = new Point(26, 80), Size = new Size(624, 208), Font = new Font("Consolas", 15), Text = "ssh user@linux\r\n$ cd /var/log\r\n$ tail -f application.log", BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(247, 248, 250) })
+            using (var secondBox = new TextBox { Location = new Point(450, 47), Size = new Size(180, 24) })
             using (var follower = new CaretOverlay())
             {
                 editor.BackColor = box.BackColor;
                 editor.Controls.Add(new Label { Text = "提示随输入光标移动 · 不遮挡正在输入的文字", AutoSize = true, Location = new Point(24, 22), Font = new Font("Microsoft YaHei UI", 11) });
                 editor.Controls.Add(box);
+                editor.Controls.Add(secondBox);
                 editor.Show();
                 // The test process is launched with a hidden startup window. Explicitly
                 // show only this fixture so Windows creates a visible native caret.
@@ -269,14 +327,18 @@ namespace InputBeacon
                 // Exercise the actual native COM interface and its method order on
                 // our own control. Keep pumping the UI while its MTA client runs.
                 string automationStatus = null;
+                string firstIdentity = null, repeatedIdentity = null, secondIdentity = null;
                 Rectangle automationBounds = Rectangle.Empty;
-                IntPtr editorHandle = editor.Handle, boxHandle = box.Handle;
+                IntPtr editorHandle = editor.Handle, boxHandle = box.Handle, secondHandle = secondBox.Handle;
                 var automationThread = new System.Threading.Thread(delegate()
                 {
                     using (var reader = new AutomationCaret())
                     {
                         reader.TryReadControl(editorHandle, boxHandle, out automationBounds);
                         automationStatus = reader.Status;
+                        firstIdentity = reader.ReadControlIdentity(editorHandle, boxHandle);
+                        repeatedIdentity = reader.ReadControlIdentity(editorHandle, boxHandle);
+                        secondIdentity = reader.ReadControlIdentity(editorHandle, secondHandle);
                     }
                 });
                 automationThread.SetApartmentState(System.Threading.ApartmentState.MTA);
@@ -286,6 +348,8 @@ namespace InputBeacon
                 while (automationThread.IsAlive && CaretTracker.Now < deadline) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
                 File.WriteAllText(Path.Combine(folder, "uia-fixture.txt"), automationStatus + " " + automationBounds);
                 check("Native UIA COM client reaches our real TextBox provider", !automationThread.IsAlive && (automationStatus == "UIA TextPattern2" || automationStatus == "UIA: TextPattern2 unavailable" || automationStatus == "UIA: caret inactive"));
+                check("Real UIA field identity is stable across polls", !string.IsNullOrEmpty(firstIdentity) && firstIdentity == repeatedIdentity);
+                check("Real UIA distinguishes two text boxes in one window", !string.IsNullOrEmpty(secondIdentity) && firstIdentity != secondIdentity);
                 if (automationStatus == "UIA TextPattern2") check("TextPattern2 agrees with native insertion caret", Math.Abs(automationBounds.X - first.X) <= 2 && Math.Abs(automationBounds.Y - first.Y) <= 2);
                 var sample = new CaretSample { Foreground = editor.Handle, Focus = box.Handle, Bounds = first, Valid = true };
                 var settings = new Settings { FollowCaret = true, FollowSeconds = 0 };

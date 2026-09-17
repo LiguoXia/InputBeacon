@@ -40,6 +40,7 @@ namespace InputBeacon
                         if (recent.Length > 600) recent = recent.Substring(0, 600);
                     }
                     CaretSample sample = tracker.Read();
+                    lifetime.ObserveCaret(state, sample, 1, now);
                     bool timed = lifetime.ShouldShow(true, 1, sample != null, now);
                     if (sample != null && (continuous.Checked || timed))
                     {

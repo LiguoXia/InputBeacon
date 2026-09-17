@@ -13,6 +13,29 @@ namespace InputBeacon
         private UiaWalker walker;
         internal string Status { get; private set; }
 
+        internal string ReadFocusIdentity(IntPtr foreground)
+        {
+            return ReadControlIdentity(foreground, IntPtr.Zero);
+        }
+
+        internal string ReadControlIdentity(IntPtr foreground, IntPtr control)
+        {
+            UiaElement element = null;
+            try
+            {
+                Initialize();
+                element = control == IntPtr.Zero ? client.GetFocusedElement() : client.ElementFromHandle(control);
+                if (element == null || (control == IntPtr.Zero && !Equals(element.Property(30008), true)) ||
+                    Equals(element.Property(30022), true) || !BelongsToWindow(element, foreground)) return null;
+                int[] id = element.GetRuntimeId();
+                return id == null || id.Length == 0 ? null : string.Join(",", id);
+            }
+            catch (COMException) { return null; }
+            catch (InvalidCastException) { return null; }
+            catch (NotSupportedException) { return null; }
+            finally { Release(element); }
+        }
+
         private void Initialize()
         {
             if (client != null) return;
@@ -145,7 +168,9 @@ namespace InputBeacon
     [ComImport, Guid("d22108aa-8ac5-49a5-837b-37bbb3d7591e"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     internal interface UiaElement
     {
-        void SetFocus(); void GetRuntimeId(); void FindFirst(); void FindAll(); void FindFirstBuildCache(); void FindAllBuildCache(); void BuildUpdatedCache();
+        void SetFocus();
+        [return: MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_I4)] int[] GetRuntimeId();
+        void FindFirst(); void FindAll(); void FindFirstBuildCache(); void FindAllBuildCache(); void BuildUpdatedCache();
         [return: MarshalAs(UnmanagedType.Struct)] object Property(int id);
         void GetCurrentPropertyValueEx(); void GetCachedPropertyValue(); void GetCachedPropertyValueEx(); void GetCurrentPatternAs(); void GetCachedPatternAs();
         [return: MarshalAs(UnmanagedType.IUnknown)] object Pattern(int id);

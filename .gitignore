@@ -1,6 +1,7 @@
 build/
 test-output/
 release/
+local-preview*/
 *.zip
 *.exe
 *.pdb

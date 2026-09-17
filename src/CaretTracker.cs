@@ -15,6 +15,7 @@ namespace InputBeacon
         internal Rectangle Bounds;
         internal long Timestamp;
         internal bool Valid;
+        internal string InputIdentity;
     }
 
     internal sealed class CaretTracker : IDisposable
@@ -63,11 +64,7 @@ namespace InputBeacon
             if (hasThreadInfo && (info.Flags & 0x1e) != 0) return null;
             IntPtr focus = hasThreadInfo && info.Focus != IntPtr.Zero ? info.Focus : foreground;
             Rectangle native;
-            if (TryNative(info, out native) && IsInsideWindow(foreground, native))
-            {
-                lock (gate) lastStatus = "Win32 caret";
-                return Native.GetForegroundWindow() == foreground ? new CaretSample { Foreground = foreground, Focus = focus, Bounds = native, Timestamp = Now, Valid = true } : null;
-            }
+            bool nativeFound = TryNative(info, out native) && IsInsideWindow(foreground, native);
             lock (gate)
             {
                 if (stopping) return null;
@@ -75,6 +72,14 @@ namespace InputBeacon
                 requestedFocus = focus;
                 wake.Set();
                 if (Native.ClassName(foreground).StartsWith("SunAwt", StringComparison.Ordinal)) javaWake.Set();
+                if (nativeFound)
+                {
+                    lastStatus = "Win32 caret";
+                    return Native.GetForegroundWindow() == foreground ? new CaretSample {
+                        Foreground = foreground, Focus = focus, Bounds = native, Timestamp = Now, Valid = true,
+                        InputIdentity = Fresh(latest, foreground, focus, Now) ? latest.InputIdentity : null
+                    } : null;
+                }
                 if (Fresh(javaLatest, foreground, focus, Now)) return javaLatest;
                 if (Fresh(latest, foreground, focus, Now))
                     return latest;
@@ -139,15 +144,23 @@ namespace InputBeacon
                             if (java) { found = bridge.TryRead(foreground, out rectangle); status = bridge.Status; }
                             else
                             {
-                                found = (TryAccessibleCaret(focus, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
-                                    (TryAccessibleCaret(foreground, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
-                                    (TryAccessibleCaret(IntPtr.Zero, out rectangle) && IsInsideWindow(foreground, rectangle));
-                                if (found) status = "MSAA caret";
+                                uint ignored;
+                                var info = new Native.GuiThreadInfo { Size = Marshal.SizeOf(typeof(Native.GuiThreadInfo)) };
+                                found = Native.GetGUIThreadInfo(Native.GetWindowThreadProcessId(foreground, out ignored), ref info) &&
+                                    TryNative(info, out rectangle) && IsInsideWindow(foreground, rectangle);
+                                if (found) status = "Win32 caret";
                                 else
                                 {
-                                    found = automation.TryRead(foreground, out rectangle);
-                                    status = automation.Status;
-                                    if (!found && TryAutomation(foreground, out rectangle)) { found = true; status = "UIA TextPattern"; }
+                                    found = (TryAccessibleCaret(focus, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
+                                        (TryAccessibleCaret(foreground, out rectangle) && IsInsideWindow(foreground, rectangle)) ||
+                                        (TryAccessibleCaret(IntPtr.Zero, out rectangle) && IsInsideWindow(foreground, rectangle));
+                                    if (found) status = "MSAA caret";
+                                    else
+                                    {
+                                        found = automation.TryRead(foreground, out rectangle);
+                                        status = automation.Status;
+                                        if (!found && TryAutomation(foreground, out rectangle)) { found = true; status = "UIA TextPattern"; }
+                                    }
                                 }
                             }
                         }
@@ -155,6 +168,11 @@ namespace InputBeacon
                         {
                             sample.Bounds = rectangle;
                             sample.Valid = Native.GetForegroundWindow() == foreground && IsInsideWindow(foreground, rectangle);
+                            sample.Timestamp = Now;
+                            // UIA runtime IDs distinguish virtual fields that share an HWND.
+                            // Keep this on the existing worker; never read input text.
+                            if (!java && sample.Valid) sample.InputIdentity = automation.ReadFocusIdentity(foreground);
+                            sample.Valid &= Native.GetForegroundWindow() == foreground;
                         }
                     }
                     catch (COMException) { }
@@ -165,9 +183,8 @@ namespace InputBeacon
                     catch (NotSupportedException) { }
                     catch (NotImplementedException) { }
                     catch (System.Security.SecurityException) { }
-                    // Age begins when the geometry was obtained, not before a cold
-                    // UIA connection; otherwise slow initial connections never show.
-                    sample.Timestamp = Now;
+                    // Age starts at geometry acquisition; a slow identity query
+                    // must not make old geometry appear fresh.
                     lock (gate)
                     {
                         if (java) { javaLatest = sample; lastJavaStatus = status ?? "Java caret unavailable"; }
