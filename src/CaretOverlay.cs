@@ -87,9 +87,15 @@ namespace InputBeacon
                 pendingField = null;
                 return;
             }
-            string field = caret.Foreground + ":" + caret.Focus + ":" + caret.InputIdentity;
-            if (field != pendingField) { pendingField = field; fieldSince = now; return; }
-            if (now - fieldSince < 200) return;
+            // A different native input target is unambiguous: display on the first
+            // valid caret sample. Virtual fields sharing a target retain one extra
+            // observation to reject a provider's single-sample identity fluctuation.
+            if (sameWindow)
+            {
+                string field = caret.Foreground + ":" + caret.Focus + ":" + caret.InputIdentity;
+                if (field != pendingField) { pendingField = field; fieldSince = now; return; }
+                if (now <= fieldSince) return;
+            }
             shownForeground = caret.Foreground;
             shownFocus = caret.Focus;
             shownIdentity = caret.InputIdentity;

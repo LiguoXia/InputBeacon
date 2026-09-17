@@ -324,7 +324,7 @@ namespace InputBeacon
             using (var font = new Font("Microsoft YaHei UI", 14, FontStyle.Regular, GraphicsUnit.Pixel))
             {
                 graphics.Clear(Color.FromArgb(246, 247, 249));
-                graphics.DrawString("InputBeacon 1.4.2  ·  透明极简版", font, Brushes.DimGray, 30, 22);
+                graphics.DrawString("InputBeacon 1.4.3  ·  透明极简版", font, Brushes.DimGray, 30, 22);
                 graphics.DrawString("以下仅为浅色 / 深色背景对比，程序本身没有底板", font, Brushes.Gray, 30, 52);
                 using (var dark = new SolidBrush(Color.FromArgb(25, 28, 34))) graphics.FillRectangle(dark, 360, 92, 360, 324);
                 for (int i = 0; i < examples.Length; i++)
