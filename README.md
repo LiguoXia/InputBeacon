@@ -2,9 +2,9 @@
 
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
-单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前源码版本：**1.4.4**；已发布下载版本：**1.4.3**。
+单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.4**。
 
-**1.4.4 内存与流畅度优化版**源码已更新，尚未发布 GitHub Release；下方下载链接仍是 1.4.3 正式发布版。优化说明和实测记录见 [性能优化记录](docs/performance-1.4.4.md)。
+**1.4.4 内存与流畅度优化版**减少持续轮询的临时分配、重复画面上传和辅助功能接口资源占用。优化说明和实测记录见 [性能优化记录](docs/performance-1.4.4.md)。
 
 开启光标跟随并设置消失秒数后，在不同输入框间切换，即会显示当前状态并重新计时；原有偏好沿用。升级请先退出旧版，再运行新版 EXE。
 
@@ -17,7 +17,7 @@
 ## 下载与开始使用
 
 1. 打开本仓库的 **[Releases](https://github.com/LiguoXia/InputBeacon/releases/latest)**，选择最新版本。
-2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.3/InputBeacon-v1.4.3-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
+2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.4/InputBeacon-v1.4.4-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
 3. 双击 EXE。第一次运行默认显示悬浮窗；任务栏状态、光标跟随和开机启动默认关闭。
 4. 点击终端输入区，再切换中英文、Caps Lock 或 Shift，观察提示。
 5. 右键悬浮文字或通知区域图标，调整设置。
