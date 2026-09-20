@@ -1,0 +1,10 @@
+moving_hint: count=2000, elapsed_ms=2255, cpu_ms=1109, allocated_bytes=6069192, private_before=25440256, private_after=30302208, working_set=45813760, GDI_delta=0, USER_delta=0, gen0=0, gen2=0
+stationary_hint: count=2000, elapsed_ms=138, cpu_ms=125, allocated_bytes=4157616, private_before=30633984, private_after=30961664, working_set=46706688, GDI_delta=0, USER_delta=0, gen0=1, gen2=0
+input_poll: count=20000, elapsed_ms=153, cpu_ms=141, allocated_bytes=50997456, private_before=30973952, private_after=31264768, working_set=47140864, GDI_delta=0, USER_delta=0, gen0=8, gen2=0
+uia_geometry_batch_0: count=1000, elapsed_ms=1883, cpu_ms=1922, allocated_bytes=1466448, private_before=32886784, private_after=34635776, working_set=55246848, GDI_delta=0, USER_delta=0, gen0=1, gen2=0
+uia_geometry_batch_1: count=1000, elapsed_ms=3133, cpu_ms=2688, allocated_bytes=1466368, private_before=34820096, private_after=34983936, working_set=55681024, GDI_delta=0, USER_delta=0, gen0=1, gen2=1
+uia_geometry_batch_2: count=1000, elapsed_ms=2163, cpu_ms=1891, allocated_bytes=1482752, private_before=35008512, private_after=35459072, working_set=56147968, GDI_delta=0, USER_delta=0, gen0=1, gen2=1
+uia_geometry_batch_3: count=1000, elapsed_ms=1804, cpu_ms=2094, allocated_bytes=1474560, private_before=35459072, private_after=35483648, working_set=56193024, GDI_delta=0, USER_delta=0, gen0=1, gen2=1
+uia_geometry_batch_4: count=1000, elapsed_ms=1654, cpu_ms=1938, allocated_bytes=1458176, private_before=35483648, private_after=35508224, working_set=56217600, GDI_delta=0, USER_delta=0, gen0=0, gen2=0
+UIA valid samples=5500
+PASS

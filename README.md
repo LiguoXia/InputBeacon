@@ -2,7 +2,9 @@
 
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
-单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.3**。
+单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前源码版本：**1.4.4**；已发布下载版本：**1.4.3**。
+
+**1.4.4 内存与流畅度优化版**源码已更新，尚未发布 GitHub Release；下方下载链接仍是 1.4.3 正式发布版。优化说明和实测记录见 [性能优化记录](docs/performance-1.4.4.md)。
 
 开启光标跟随并设置消失秒数后，在不同输入框间切换，即会显示当前状态并重新计时；原有偏好沿用。升级请先退出旧版，再运行新版 EXE。
 
@@ -179,6 +181,8 @@ IDEA 的 Java 编辑区通过 **Java Access Bridge** 提供光标位置。普通
 ```
 
 使用系统 .NET Framework C# 编译器及 WinForms、System.Drawing、Accessibility、UI Automation 程序集，不下载 NuGet 包，不依赖 Visual Studio 或 .NET SDK。
+
+1.4.4 使用系统原生 UI Automation COM 接口，构建和运行不再引用托管 UIAutomationClient、UIAutomationTypes 和 WindowsBase 程序集。
 
 ```text
 release/键盘状态.exe       可直接运行的程序

@@ -20,7 +20,8 @@ namespace InputBeacon
         private static string ModeKey(InputState state)
         {
             if (state.Mode == InputMode.Unknown) return null;
-            return state.Mode == InputMode.Other ? "Other:" + state.OtherLabel : state.Mode.ToString();
+            return state.Mode == InputMode.Other ? "Other:" + state.OtherLabel :
+                state.Mode == InputMode.Chinese ? "Chinese" : "English";
         }
 
         private void Trigger(int seconds, long now, string reason)
@@ -119,7 +120,11 @@ namespace InputBeacon
     internal sealed class CaretOverlay : Form
     {
         private Bitmap surface;
-        private string paintKey;
+        private InputState paintedState;
+        private Size paintedSize;
+        private Color? paintedColor;
+        private bool paintedTailRight, paintedBelow;
+        private long lastTopmost;
         private int lastOpacity = -1;
         internal int SurfaceUpdates { get; private set; }
         internal CaretOverlay()
@@ -164,25 +169,34 @@ namespace InputBeacon
             Point location = Position(caret.Bounds, size, area, Math.Max(0, (int)Math.Round(scale)));
             bool tailRight = location.X + size.Width / 2 < caret.Bounds.Left;
             bool below = location.Y >= caret.Bounds.Bottom;
-            string key = state.Key + ":" + size + ":" + settings.UseCustomTextColor + ":" + settings.TextColor.ToArgb() + ":" + tailRight + ":" + below;
-            bool render = paintKey != key || surface == null;
+            Color? color = settings.UseCustomTextColor ? (Color?)settings.TextColor : null;
+            bool render = surface == null || !state.SameDisplay(paintedState) || paintedSize != size ||
+                paintedColor != color || paintedTailRight != tailRight || paintedBelow != below;
             if (render)
             {
                 Bitmap next = BubblePainter.Render(size, state, settings.UseCustomTextColor ? (Color?)settings.TextColor : null, tailRight, below);
                 if (surface != null) surface.Dispose();
                 surface = next;
-                paintKey = key;
+                paintedState = state.Copy(); paintedSize = size; paintedColor = color;
+                paintedTailRight = tailRight; paintedBelow = below;
             }
-            bool needsPresent = render || !Visible || Location != location || Size != size || lastOpacity != settings.Opacity;
+            // Windows retains the layered bitmap. Moving it does not require a new
+            // DIB, pixel copy or UpdateLayeredWindow upload on every caret movement.
+            bool needsPresent = render || !Visible || Size != size || lastOpacity != settings.Opacity;
+            if (Location != location || Size != size) SetBounds(location.X, location.Y, size.Width, size.Height);
             if (needsPresent)
             {
-                SetBounds(location.X, location.Y, size.Width, size.Height);
                 LayeredSurface.Present(Handle, location, surface, settings.Opacity);
                 lastOpacity = settings.Opacity;
                 SurfaceUpdates++;
             }
             if (!Visible) Show();
-            Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0040);
+            long now = CaretTracker.Now;
+            if (needsPresent || now - lastTopmost >= 2000)
+            {
+                Native.SetWindowPos(Handle, Native.HWND_TOPMOST, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010 | 0x0040);
+                lastTopmost = now;
+            }
         }
         protected override void OnPaint(PaintEventArgs e) { }
         protected override void OnPaintBackground(PaintEventArgs e) { }

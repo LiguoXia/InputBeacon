@@ -1,0 +1,183 @@
+﻿PASS English keyboard layout
+PASS Chinese native bit with extra flags
+PASS Chinese IME in English mode
+PASS Closed IME despite stale native bit
+PASS Unavailable Chinese IME is UNKNOWN
+PASS Missing conversion is not assumed Chinese
+PASS Conversion fallback without open flag
+PASS Traditional Chinese
+PASS Full width English
+PASS German is not mislabeled English
+PASS Japanese is not mislabeled Chinese
+PASS No layout is UNKNOWN
+PASS Caps=False Shift=False letter case
+PASS Caps=False Shift=True letter case
+PASS Caps=True Shift=False letter case
+PASS Caps=True Shift=True letter case
+PASS Corrupt settings use safe defaults
+PASS Settings atomic save
+PASS Settings round trip
+PASS HEX RRGGBB
+PASS HEX shorthand and trim
+PASS HEX without hash
+PASS Reject invalid HEX ''
+PASS Reject invalid HEX '#'
+PASS Reject invalid HEX '#GGG'
+PASS Reject invalid HEX '#12345'
+PASS Reject invalid HEX '#12345678'
+PASS Reject invalid HEX '0x00FF00'
+PASS Reject invalid HEX '#12 345'
+PASS Reject invalid HEX 'red'
+PASS Custom color persists across restart
+PASS Chosen HEX colors both language and case glyphs
+PASS Invalid HEX disables Apply
+PASS Valid HEX re-enables Apply and updates selection
+PASS Editing the picker does not mutate saved settings before Apply
+PASS Color picker controls fit without clipping
+PASS Display preferences persist: floating=False taskbar=False
+PASS Independent display switches: floating=False taskbar=False
+PASS Settings entry remains recoverable
+PASS Tray-only startup can restore floating window
+PASS Display preferences persist: floating=False taskbar=True
+PASS Independent display switches: floating=False taskbar=True
+PASS Settings entry remains recoverable
+PASS Tray-only startup can restore floating window
+PASS Display preferences persist: floating=True taskbar=False
+PASS Independent display switches: floating=True taskbar=False
+PASS Settings entry remains recoverable
+PASS Display preferences persist: floating=True taskbar=True
+PASS Independent display switches: floating=True taskbar=True
+PASS Settings entry remains recoverable
+PASS Taskbar status updates release old icon handles
+PASS Taskbar status recreates after Explorer notification
+PASS Native taskbar icon is valid 32px with a handle
+PASS Native taskbar icon is valid 32px with a handle
+PASS Native taskbar icon is valid 32px with a handle
+PASS Native taskbar icon is valid 32px with a handle
+PASS Starting timed follow does not invent a state change
+PASS A real case change starts the first hint
+PASS Moving caret does not extend a timed hint
+PASS Single IME sample does not retrigger hint
+PASS Confirmed input mode change retriggers hint
+PASS Caps change resets hint duration
+PASS Shift case change retriggers hint
+PASS Always mode survives timed expiry
+PASS Missing caret hides even always mode
+PASS Follow switch overrides always mode
+PASS Reapplying follow settings establishes a silent baseline
+PASS IME failure and recovery never display a bubble
+PASS Full-width flag fluctuations do not trigger follow
+PASS A transient English sample during composition is ignored
+PASS Mode switch waits for stable evidence
+PASS A real stable mode switch displays once
+PASS Focus changes establish a silent baseline and hide old bubble
+PASS Returning from an unknown foreground context is not a switch
+PASS Caps change remains immediate
+PASS Shift case reversal remains immediate
+PASS Unchanged effective letter case does not extend countdown
+PASS Always mode is independent of trigger suppression
+PASS A polling pause cannot confirm a pending mode change
+PASS Mode can confirm after polling resumes
+PASS Unknown recovery does not extend an active countdown
+PASS Native input focus displays on the first valid sample
+PASS Entering a text field gets one complete countdown
+PASS Typing and moving inside a field do not restart its timer
+PASS Browser to WeChat focus displays immediately without a mode change
+PASS Later caret polls do not extend the immediate focus hint
+PASS Virtual fields still reject a single changed identity sample
+PASS Virtual input focus confirms at the next poll without 200ms wait
+PASS Returning to an earlier input field also displays once
+PASS Temporary caret loss during composition does not retrigger
+PASS Temporary UIA identity loss does not retrigger
+PASS IME read recovery retains the focus countdown
+PASS Non-input windows never display a focus hint
+PASS Slow caret discovery shows immediately when geometry arrives
+PASS Slow caret discovery receives the full configured duration
+PASS Late identity discovery does not display twice
+PASS Transient focus jitter does not display a new hint
+PASS A mismatched focus sample cannot trigger a hint
+PASS Native controls trigger immediately without UIA support
+PASS Disabled follow suppresses focus hints
+PASS Always follow stays visible after a focus hint expires
+PASS Follow preferences persist: 0
+PASS Follow preferences persist: 1
+PASS Follow preferences persist: 3
+PASS Follow preferences persist: 60
+PASS Invalid follow duration defaults to three seconds
+PASS Bubble tail stays close to insertion caret
+PASS Hint flips left at right edge
+PASS Bubble stays fully inside extreme right edge
+PASS Hint flips below at top edge
+PASS Follow supports negative monitor coordinates
+PASS Invalid caret geometry is rejected
+PASS UIA accepts collapsed zero-width caret
+PASS UIA uses character right edge at document end
+PASS UIA rejects empty and multi-line ranges
+PASS UIA rejects non-finite and oversized geometry
+PASS Empty UIA end range uses preceding character geometry
+PASS UIA geometry fallback never moves original caret
+PASS Empty UIA middle range expands by endpoint
+PASS UIA fallback locates first character
+PASS Empty document without geometry does not invent a caret
+PASS Blank final line does not reuse previous line geometry
+PASS Recent caret sample can be displayed
+PASS Expired caret disappears
+PASS Focus changes never reuse a previous control caret
+PASS Java bridge structures match native ABI
+PASS Java supports caret on negative monitor coordinates
+PASS Java rejects an unavailable caret
+PASS Bubble transparent corners 0
+PASS Bubble panel remains translucent 0
+PASS Bubble transparent corners 1
+PASS Bubble panel remains translucent 1
+PASS Bubble transparent corners 2
+PASS Bubble panel remains translucent 2
+PASS Bubble transparent corners 3
+PASS Bubble panel remains translucent 3
+PASS Java support dialog controls fit
+PASS Follow settings controls fit
+PASS Always option disables countdown field
+PASS Countdown disabled in always mode
+PASS Read real native TextBox caret
+PASS Native UIA COM client reaches our real TextBox provider
+PASS Native legacy UIA selection fallback locates insertion caret
+PASS Legacy UIA does not mistake selected text for caret
+PASS Idle UIA connection can reconnect
+PASS Real UIA field identity is stable across polls
+PASS Real UIA distinguishes two text boxes in one window
+PASS TextPattern2 agrees with native insertion caret
+PASS Follow window displays without stealing foreground focus
+PASS Follow window is layered and mouse transparent
+PASS Native caret still available after newline movement
+PASS Always hint follows horizontal and vertical caret movement
+PASS Caret movement reuses compositor pixels
+PASS Stationary caret avoids redundant pixel uploads
+PASS Opacity change updates stationary follow hint
+PASS Follow window can hide immediately
+PASS Hidden follower restores surface
+PASS Disconnected screen position recovery
+PASS Negative-coordinate monitor
+PASS Missing IME handle returns failure
+PASS Destroyed or invalid IME handle returns failure
+PASS Cross-thread IME response
+PASS Zero is a valid English response, not timeout
+PASS IME error response rejected
+PASS Hung target has bounded timeout
+PASS Overlay window is actually visible
+PASS Overlay does not take foreground focus
+PASS Overlay NOACTIVATE + TOOLWINDOW styles
+PASS Overlay stays topmost
+PASS Per-pixel alpha reached the Windows compositor
+PASS No hard window region clips antialiasing
+PASS Background is fully transparent with no filled panel
+PASS Corners have no opaque or tinted background
+PASS Glyph edges retain smooth fractional alpha
+PASS Surface uses premultiplied 32-bit alpha
+PASS Changing opacity preserves per-pixel rendering
+PASS Repeated alpha updates release GDI resources
+PASS Hidden overlay restores its alpha surface
+PASS Mouse passthrough enabled
+PASS Mouse passthrough can be recovered
+PASS Rendered eight states and five display scales
+PASS Live Win32 probe completed
+Test scope: synthetic IME message endpoint and local WinForms overlay. Browser / SSH end-to-end input switching is a separate manual check.

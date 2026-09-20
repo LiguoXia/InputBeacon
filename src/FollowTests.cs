@@ -10,6 +10,16 @@ namespace InputBeacon
     internal static class FollowTests
     {
         [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
+        // Let Windows provide the standard RichEdit UIA proxy instead of WinForms'
+        // framework-version-dependent accessibility implementation.
+        private sealed class NativeProxyTextBox : RichTextBox
+        {
+            protected override void WndProc(ref Message message)
+            {
+                if (message.Msg == 0x003d) { DefWndProc(ref message); return; }
+                base.WndProc(ref message);
+            }
+        }
         internal static void Run(Action<string, bool> check, string folder, string settingsPath)
         {
             var lifetime = new FollowLifetime();
@@ -307,7 +317,7 @@ namespace InputBeacon
         private static void TestNativeCaret(Action<string, bool> check, string folder)
         {
             using (var editor = new Form { Text = "InputBeacon · 光标跟随预览", ClientSize = new Size(680, 320), StartPosition = FormStartPosition.CenterScreen })
-            using (var box = new TextBox { Multiline = true, Location = new Point(26, 80), Size = new Size(624, 208), Font = new Font("Consolas", 15), Text = "ssh user@linux\r\n$ cd /var/log\r\n$ tail -f application.log", BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(247, 248, 250) })
+            using (var box = new NativeProxyTextBox { Multiline = true, Location = new Point(26, 80), Size = new Size(624, 208), Font = new Font("Consolas", 15), Text = "ssh user@linux\r\n$ cd /var/log\r\n$ tail -f application.log", BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(247, 248, 250) })
             using (var secondBox = new TextBox { Location = new Point(450, 47), Size = new Size(180, 24) })
             using (var follower = new CaretOverlay())
             {
@@ -336,6 +346,9 @@ namespace InputBeacon
                 string automationStatus = null;
                 string firstIdentity = null, repeatedIdentity = null, secondIdentity = null;
                 Rectangle automationBounds = Rectangle.Empty;
+                Rectangle selectionBounds = Rectangle.Empty;
+                bool selectionFound = false;
+                bool nonemptyRejected = false, reconnected = false;
                 IntPtr editorHandle = editor.Handle, boxHandle = box.Handle, secondHandle = secondBox.Handle;
                 var automationThread = new System.Threading.Thread(delegate()
                 {
@@ -343,9 +356,16 @@ namespace InputBeacon
                     {
                         reader.TryReadControl(editorHandle, boxHandle, out automationBounds);
                         automationStatus = reader.Status;
+                        selectionFound = reader.TryReadSelectionControl(editorHandle, boxHandle, out selectionBounds);
                         firstIdentity = reader.ReadControlIdentity(editorHandle, boxHandle);
                         repeatedIdentity = reader.ReadControlIdentity(editorHandle, boxHandle);
                         secondIdentity = reader.ReadControlIdentity(editorHandle, secondHandle);
+                        editor.Invoke((Action)delegate { box.Select(1, 3); });
+                        Rectangle ignoredBounds;
+                        nonemptyRejected = !reader.TryReadSelectionControl(editorHandle, boxHandle, out ignoredBounds);
+                        editor.Invoke((Action)delegate { box.Select(3, 0); });
+                        reader.Dispose();
+                        reconnected = reader.ReadControlIdentity(editorHandle, boxHandle) == firstIdentity;
                     }
                 });
                 automationThread.SetApartmentState(System.Threading.ApartmentState.MTA);
@@ -354,7 +374,10 @@ namespace InputBeacon
                 long deadline = CaretTracker.Now + 5000;
                 while (automationThread.IsAlive && CaretTracker.Now < deadline) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
                 File.WriteAllText(Path.Combine(folder, "uia-fixture.txt"), automationStatus + " " + automationBounds);
-                check("Native UIA COM client reaches our real TextBox provider", !automationThread.IsAlive && (automationStatus == "UIA TextPattern2" || automationStatus == "UIA: TextPattern2 unavailable" || automationStatus == "UIA: caret inactive"));
+                check("Native UIA COM client reaches our real TextBox provider", !automationThread.IsAlive && (automationStatus == "UIA TextPattern2" || automationStatus == "UIA TextPattern"));
+                check("Native legacy UIA selection fallback locates insertion caret", selectionFound && Math.Abs(selectionBounds.X - first.X) <= 2 && Math.Abs(selectionBounds.Y - first.Y) <= 2);
+                check("Legacy UIA does not mistake selected text for caret", nonemptyRejected);
+                check("Idle UIA connection can reconnect", reconnected && !string.IsNullOrEmpty(firstIdentity));
                 check("Real UIA field identity is stable across polls", !string.IsNullOrEmpty(firstIdentity) && firstIdentity == repeatedIdentity);
                 check("Real UIA distinguishes two text boxes in one window", !string.IsNullOrEmpty(secondIdentity) && firstIdentity != secondIdentity);
                 if (automationStatus == "UIA TextPattern2") check("TextPattern2 agrees with native insertion caret", Math.Abs(automationBounds.X - first.X) <= 2 && Math.Abs(automationBounds.Y - first.Y) <= 2);
@@ -368,6 +391,7 @@ namespace InputBeacon
                 long style = Native.GetStyle(follower.Handle);
                 check("Follow window is layered and mouse transparent", (style & Native.WS_EX_TRANSPARENT) != 0 && (style & Native.WS_EX_NOACTIVATE) != 0 && (style & Native.WS_EX_LAYERED) != 0);
                 Point initial = follower.Location;
+                int initialUploads = follower.SurfaceUpdates;
                 box.Focus();
                 box.Select(box.TextLength, 0);
                 Application.DoEvents();
@@ -378,7 +402,9 @@ namespace InputBeacon
                 sample.Bounds = last;
                 follower.UpdateAt(sample, state, settings);
                 check("Always hint follows horizontal and vertical caret movement", last.X != first.X && last.Y > first.Y && follower.Location != initial);
-                check("Follow alpha surface reached compositor", follower.SurfaceUpdates >= 2);
+                check("Caret movement reuses compositor pixels", initialUploads > 0 && follower.SurfaceUpdates == initialUploads);
+                follower.UpdateAt(sample, state, settings);
+                check("Stationary caret avoids redundant pixel uploads", follower.SurfaceUpdates == initialUploads);
                 int updates = follower.SurfaceUpdates;
                 settings.Opacity = 60;
                 follower.UpdateAt(sample, state, settings);
@@ -395,6 +421,9 @@ namespace InputBeacon
                 }
                 follower.Hide();
                 check("Follow window can hide immediately", !follower.Visible);
+                updates = follower.SurfaceUpdates;
+                follower.UpdateAt(sample, state, settings);
+                check("Hidden follower restores surface", follower.Visible && follower.SurfaceUpdates > updates);
                 editor.Close();
             }
         }

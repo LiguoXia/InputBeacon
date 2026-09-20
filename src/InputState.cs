@@ -52,6 +52,11 @@ namespace InputBeacon
         public string CaseDetail { get { return "Caps " + (Caps ? "开" : "关") + (Shift ? " · Shift ↓" : ""); } }
         public string Key { get { return Mode + ":" + Caps + ":" + Shift + ":" + FullWidth + ":" + OtherLabel; } }
         public InputState Copy() { return (InputState)MemberwiseClone(); }
+        internal bool SameDisplay(InputState other)
+        {
+            return other != null && Mode == other.Mode && Caps == other.Caps && Shift == other.Shift &&
+                FullWidth == other.FullWidth && OtherLabel == other.OtherLabel;
+        }
 
         internal static InputState Resolve(int language, bool isIme, bool gotOpen, uint open,
             bool gotConversion, uint conversion)
@@ -88,14 +93,36 @@ namespace InputBeacon
 
     internal sealed class InputProbe
     {
+        private IntPtr diagnosticForeground, diagnosticTarget, diagnosticLayout, diagnosticIme;
+        private uint diagnosticOpen, diagnosticConversion;
+        private bool diagnosticGotOpen, diagnosticGotConversion;
+        private InputMode diagnosticMode;
+
         internal InputState Read(out string diagnostic)
+        {
+            InputState state = Read();
+            diagnostic = GetDiagnostic();
+            return state;
+        }
+
+        internal string GetDiagnostic()
+        {
+            if (diagnosticForeground == IntPtr.Zero) return "No foreground input window.";
+            return string.Format(CultureInfo.InvariantCulture,
+                "ForegroundClass={0}\r\nFocusClass={1}\r\nLayout=0x{2:X}\r\nImeWindow=0x{3:X}\r\nOpen={4}\r\nConversion={5}\r\nMode={6}",
+                Native.ClassName(diagnosticForeground), Native.ClassName(diagnosticTarget), diagnosticLayout.ToInt64(), diagnosticIme.ToInt64(),
+                diagnosticGotOpen ? diagnosticOpen.ToString(CultureInfo.InvariantCulture) : "unavailable",
+                diagnosticGotConversion ? diagnosticConversion.ToString(CultureInfo.InvariantCulture) : "unavailable", diagnosticMode);
+        }
+
+        internal InputState Read()
         {
             IntPtr foreground = Native.GetForegroundWindow();
             uint processId;
             uint threadId = Native.GetWindowThreadProcessId(foreground, out processId);
             if (foreground == IntPtr.Zero || threadId == 0)
             {
-                diagnostic = "No foreground input window.";
+                diagnosticForeground = IntPtr.Zero;
                 return WithKeys(new InputState());
             }
             var info = new Native.GuiThreadInfo { Size = Marshal.SizeOf(typeof(Native.GuiThreadInfo)) };
@@ -123,11 +150,10 @@ namespace InputBeacon
             // Discard a sample taken across a focus switch instead of showing another app's mode.
             if (Native.GetForegroundWindow() != foreground) state = new InputState();
             else { state.Foreground = foreground; state.Focus = target; }
-            diagnostic = string.Format(CultureInfo.InvariantCulture,
-                "ForegroundClass={0}\r\nFocusClass={1}\r\nLayout=0x{2:X}\r\nImeWindow=0x{3:X}\r\nOpen={4}\r\nConversion={5}\r\nMode={6}",
-                Native.ClassName(foreground), Native.ClassName(target), layout.ToInt64(), ime.ToInt64(),
-                gotOpen ? open.ToString(CultureInfo.InvariantCulture) : "unavailable",
-                gotConversion ? conversion.ToString(CultureInfo.InvariantCulture) : "unavailable", state.Mode);
+            diagnosticForeground = foreground; diagnosticTarget = target;
+            diagnosticLayout = layout; diagnosticIme = ime;
+            diagnosticOpen = open; diagnosticConversion = conversion;
+            diagnosticGotOpen = gotOpen; diagnosticGotConversion = gotConversion; diagnosticMode = state.Mode;
             return WithKeys(state);
         }
 

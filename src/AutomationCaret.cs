@@ -12,6 +12,8 @@ namespace InputBeacon
         private UiaClient client;
         private UiaWalker walker;
         internal string Status { get; private set; }
+        internal string InputIdentity { get; private set; }
+        internal long GeometryTimestamp { get; private set; }
 
         internal string ReadFocusIdentity(IntPtr foreground)
         {
@@ -27,8 +29,7 @@ namespace InputBeacon
                 element = control == IntPtr.Zero ? client.GetFocusedElement() : client.ElementFromHandle(control);
                 if (element == null || (control == IntPtr.Zero && !Equals(element.Property(30008), true)) ||
                     Equals(element.Property(30022), true) || !BelongsToWindow(element, foreground)) return null;
-                int[] id = element.GetRuntimeId();
-                return id == null || id.Length == 0 ? null : string.Join(",", id);
+                return Identity(element);
             }
             catch (COMException) { return null; }
             catch (InvalidCastException) { return null; }
@@ -39,8 +40,9 @@ namespace InputBeacon
         private void Initialize()
         {
             if (client != null) return;
-            client = (UiaClient)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("ff48dba4-60ef-4201-aa87-54103eef594e")));
-            walker = client.RawViewWalker();
+            UiaClient next = (UiaClient)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("ff48dba4-60ef-4201-aa87-54103eef594e")));
+            try { walker = next.RawViewWalker(); client = next; }
+            catch { Release(next); throw; }
         }
 
         internal bool TryRead(IntPtr foreground, out Rectangle rectangle)
@@ -50,31 +52,98 @@ namespace InputBeacon
 
         internal bool TryReadControl(IntPtr foreground, IntPtr control, out Rectangle rectangle)
         {
+            return TryReadControl(foreground, control, false, out rectangle);
+        }
+
+        internal bool TryReadSelectionControl(IntPtr foreground, IntPtr control, out Rectangle rectangle)
+        {
+            return TryReadControl(foreground, control, true, out rectangle);
+        }
+
+        private bool TryReadControl(IntPtr foreground, IntPtr control, bool selectionOnly, out Rectangle rectangle)
+        {
             rectangle = Rectangle.Empty;
+            InputIdentity = null;
             UiaElement element = null;
-            object provider = null;
-            UiaRange range = null;
             try
             {
                 Initialize();
                 element = control == IntPtr.Zero ? client.GetFocusedElement() : client.ElementFromHandle(control);
                 if (element == null || (control == IntPtr.Zero && !Equals(element.Property(30008), true)) || Equals(element.Property(30022), true) || !BelongsToWindow(element, foreground))
                 { Status = "UIA: no active text control"; return false; }
-                try { provider = element.Pattern(10024); } catch (COMException) { }
-                var pattern = provider as UiaText2;
-                if (pattern == null) { Status = "UIA: TextPattern2 unavailable"; return false; }
-                int active;
-                range = pattern.GetCaretRange(out active);
-                if (active == 0 || range == null) { Status = "UIA: caret inactive"; return false; }
-                bool result = TryRange(range, out rectangle);
-                Status = result ? "UIA TextPattern2" : "UIA: caret has no bounds";
+                bool result = !selectionOnly && TryCaretPattern(element, out rectangle);
+                Status = "UIA TextPattern2";
+                if (!result)
+                {
+                    result = TrySelection(element, out rectangle);
+                    if (result) Status = "UIA TextPattern";
+                }
+                if (result)
+                {
+                    GeometryTimestamp = CaretTracker.Now;
+                    InputIdentity = Identity(element);
+                }
                 return result;
             }
             catch (COMException error) { Status = "UIA: " + error.ErrorCode.ToString("X8"); return false; }
             catch (InvalidCastException) { Status = "UIA: unsupported provider"; return false; }
             catch (NotImplementedException) { Status = "UIA: provider has no caret method"; return false; }
             catch (NotSupportedException) { Status = "UIA: unsupported caret method"; return false; }
-            finally { Release(range); Release(provider); Release(element); }
+            finally { Release(element); }
+        }
+
+        private static string Identity(UiaElement element)
+        {
+            try
+            {
+                int[] id = element.GetRuntimeId();
+                return id == null || id.Length == 0 ? null : string.Join(",", id);
+            }
+            catch (COMException) { return null; }
+            catch (NotSupportedException) { return null; }
+        }
+
+        private static bool TryCaretPattern(UiaElement element, out Rectangle rectangle)
+        {
+            rectangle = Rectangle.Empty;
+            object provider = null;
+            UiaRange range = null;
+            try
+            {
+                provider = element.Pattern(10024);
+                var pattern = provider as UiaText2;
+                if (pattern == null) return false;
+                int active;
+                range = pattern.GetCaretRange(out active);
+                return active != 0 && range != null && TryRange(range, out rectangle);
+            }
+            catch (COMException) { return false; }
+            catch (NotImplementedException) { return false; }
+            catch (NotSupportedException) { return false; }
+            finally { Release(range); Release(provider); }
+        }
+
+        // Use native COM for the legacy fallback too. Each acquired range, array
+        // and provider is released in this poll instead of waiting for finalizers.
+        private bool TrySelection(UiaElement element, out Rectangle rectangle)
+        {
+            rectangle = Rectangle.Empty;
+            object provider = null;
+            UiaRangeArray ranges = null;
+            UiaRange range = null;
+            try
+            {
+                provider = element.Pattern(10014);
+                var pattern = provider as UiaText;
+                if (pattern == null) { Status = "UIA: TextPattern unavailable"; return false; }
+                ranges = pattern.GetSelection();
+                if (ranges == null || ranges.Length() != 1) { Status = "UIA: no single selection"; return false; }
+                range = ranges.GetElement(0);
+                if (range == null || range.CompareEndpoints(0, range, 1) != 0) { Status = "UIA: selection is not a caret"; return false; }
+                Status = "UIA: caret has no bounds";
+                return TryRange(range, out rectangle);
+            }
+            finally { Release(range); Release(ranges); Release(provider); }
         }
 
         private bool BelongsToWindow(UiaElement element, IntPtr foreground)
@@ -184,6 +253,18 @@ namespace InputBeacon
     {
         void RangeFromPoint(); void RangeFromChild(); void GetSelection(); void GetVisibleRanges(); void DocumentRange(); void SupportedTextSelection(); void RangeFromAnnotation();
         UiaRange GetCaretRange(out int active);
+    }
+
+    [ComImport, Guid("32eba289-3583-42c9-9c59-3b6d9a1e9b6a"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface UiaText
+    {
+        void RangeFromPoint(); void RangeFromChild(); UiaRangeArray GetSelection();
+    }
+
+    [ComImport, Guid("ce4ae76a-e717-4c98-81ea-47371d028eb6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface UiaRangeArray
+    {
+        int Length(); UiaRange GetElement(int index);
     }
 
     [ComImport, Guid("a543cc6a-f4ae-494b-8239-c814481187a8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

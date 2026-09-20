@@ -39,9 +39,6 @@ $sources = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '
 $arguments = @('/nologo', '/target:winexe', '/platform:anycpu', '/optimize+', '/warn:4', '/warnaserror+', '/utf8output', '/codepage:65001',
     '/reference:System.dll', '/reference:System.Core.dll', '/reference:System.Drawing.dll', '/reference:System.Windows.Forms.dll',
     '/reference:Accessibility.dll',
-    "/reference:$(Join-Path $frameworkDirectory 'WPF\UIAutomationClient.dll')",
-    "/reference:$(Join-Path $frameworkDirectory 'WPF\UIAutomationTypes.dll')",
-    "/reference:$(Join-Path $frameworkDirectory 'WPF\WindowsBase.dll')",
     "/win32manifest:$(Join-Path $projectRoot 'app.manifest')", "/win32icon:$iconPath", "/out:$output") + $sources
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }

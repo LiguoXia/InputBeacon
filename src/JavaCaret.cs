@@ -31,6 +31,7 @@ namespace InputBeacon
         private uint lastProcess;
         private string runtime;
         internal string Status { get; private set; }
+        internal bool IsInitialized { get { return module != IntPtr.Zero; } }
         internal static string LastRuntime { get; private set; }
 
         internal static string FindRuntime(uint processId)

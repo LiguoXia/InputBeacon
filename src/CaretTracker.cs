@@ -3,8 +3,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Windows.Automation;
-using System.Windows.Automation.Text;
 using Accessibility;
 
 namespace InputBeacon
@@ -24,14 +22,19 @@ namespace InputBeacon
         private readonly AutoResetEvent wake = new AutoResetEvent(false);
         private readonly AutoResetEvent javaWake = new AutoResetEvent(false);
         private readonly Thread worker;
-        private readonly Thread javaWorker;
+        private Thread javaWorker;
         private CaretSample latest, javaLatest;
         private string lastStatus = "Waiting for an input caret";
         private string lastJavaStatus = "Java bridge has not been requested";
         internal string Status { get { lock (gate) return lastStatus + "\r\n" + lastJavaStatus; } }
         private IntPtr requestedForeground, requestedFocus;
         private volatile bool stopping;
-        private readonly int ownProcess = Process.GetCurrentProcess().Id;
+        private readonly int ownProcess = CurrentProcessId();
+
+        private static int CurrentProcessId()
+        {
+            using (Process process = Process.GetCurrentProcess()) return process.Id;
+        }
 
         [StructLayout(LayoutKind.Sequential)]
         private struct NativePoint { internal int X, Y; }
@@ -46,9 +49,6 @@ namespace InputBeacon
             worker = new Thread(delegate() { Work(false); }) { IsBackground = true, Name = "InputBeacon Windows caret" };
             worker.SetApartmentState(ApartmentState.MTA);
             worker.Start();
-            javaWorker = new Thread(delegate() { Work(true); }) { IsBackground = true, Name = "InputBeacon Java caret" };
-            javaWorker.SetApartmentState(ApartmentState.STA);
-            javaWorker.Start();
         }
 
         internal static long Now { get { return (long)(Stopwatch.GetTimestamp() * (1000.0 / Stopwatch.Frequency)); } }
@@ -71,7 +71,16 @@ namespace InputBeacon
                 requestedForeground = foreground;
                 requestedFocus = focus;
                 wake.Set();
-                if (Native.ClassName(foreground).StartsWith("SunAwt", StringComparison.Ordinal)) javaWake.Set();
+                if (Native.ClassName(foreground).StartsWith("SunAwt", StringComparison.Ordinal))
+                {
+                    if (javaWorker == null)
+                    {
+                        javaWorker = new Thread(delegate() { Work(true); }) { IsBackground = true, Name = "InputBeacon Java caret" };
+                        javaWorker.SetApartmentState(ApartmentState.STA);
+                        javaWorker.Start();
+                    }
+                    javaWake.Set();
+                }
                 if (nativeFound)
                 {
                     lastStatus = "Win32 caret";
@@ -124,12 +133,18 @@ namespace InputBeacon
             {
                 while (!stopping)
                 {
-                    bool requested = signal.WaitOne(java ? 25 : Timeout.Infinite);
+                    bool requested = signal.WaitOne(java ? (bridge.IsInitialized ? 25 : Timeout.Infinite) : 30000);
                     // Windows_run owns a message window on this STA. Its discovery
                     // and Java callbacks require a pump even between sample requests.
-                    if (java) System.Windows.Forms.Application.DoEvents();
+                    if (java && bridge.IsInitialized) System.Windows.Forms.Application.DoEvents();
                     if (stopping) break;
-                    if (!requested) continue;
+                    if (!requested)
+                    {
+                        // Release the UIA connection after following has been idle
+                        // for 30 seconds, while keeping the single worker reusable.
+                        if (automation != null) automation.Dispose();
+                        continue;
+                    }
                     IntPtr foreground, focus;
                     lock (gate) { foreground = requestedForeground; focus = requestedFocus; }
                     var sample = new CaretSample { Foreground = foreground, Focus = focus, Timestamp = Now };
@@ -138,6 +153,7 @@ namespace InputBeacon
                     {
                         Rectangle rectangle;
                         bool found = false;
+                        long geometryTimestamp = 0;
                         rectangle = Rectangle.Empty;
                         if (Native.GetForegroundWindow() == foreground)
                         {
@@ -159,7 +175,11 @@ namespace InputBeacon
                                     {
                                         found = automation.TryRead(foreground, out rectangle);
                                         status = automation.Status;
-                                        if (!found && TryAutomation(foreground, out rectangle)) { found = true; status = "UIA TextPattern"; }
+                                        if (found)
+                                        {
+                                            sample.InputIdentity = automation.InputIdentity;
+                                            geometryTimestamp = automation.GeometryTimestamp;
+                                        }
                                     }
                                 }
                             }
@@ -168,15 +188,14 @@ namespace InputBeacon
                         {
                             sample.Bounds = rectangle;
                             sample.Valid = Native.GetForegroundWindow() == foreground && IsInsideWindow(foreground, rectangle);
-                            sample.Timestamp = Now;
+                            sample.Timestamp = geometryTimestamp == 0 ? Now : geometryTimestamp;
                             // UIA runtime IDs distinguish virtual fields that share an HWND.
                             // Keep this on the existing worker; never read input text.
-                            if (!java && sample.Valid) sample.InputIdentity = automation.ReadFocusIdentity(foreground);
+                            if (!java && sample.Valid && sample.InputIdentity == null) sample.InputIdentity = automation.ReadFocusIdentity(foreground);
                             sample.Valid &= Native.GetForegroundWindow() == foreground;
                         }
                     }
                     catch (COMException) { }
-                    catch (ElementNotAvailableException) { }
                     catch (InvalidOperationException) { }
                     catch (ArgumentException) { }
                     catch (UnauthorizedAccessException) { }
@@ -218,58 +237,15 @@ namespace InputBeacon
             finally { if (accessible != null && Marshal.IsComObject(accessible)) Marshal.ReleaseComObject(accessible); }
         }
 
-        // This reads geometry only: no Name, Value, selected text, or GetText calls.
-        // Providers run on a single background thread so an unresponsive application
-        // cannot block the indicator or accumulate parallel automation requests.
-        internal static bool TryAutomation(IntPtr foreground, out Rectangle rectangle)
-        {
-            rectangle = Rectangle.Empty;
-            AutomationElement element = AutomationElement.FocusedElement;
-            if (element == null || !element.Current.HasKeyboardFocus || element.Current.IsOffscreen || !BelongsToForeground(element, foreground)) return false;
-            object patternObject;
-            if (!element.TryGetCurrentPattern(TextPattern.Pattern, out patternObject)) return false;
-            TextPatternRange[] ranges = ((TextPattern)patternObject).GetSelection();
-            if (ranges == null || ranges.Length != 1) return false;
-            TextPatternRange caret = ranges[0];
-            if (caret.CompareEndpoints(TextPatternRangeEndpoint.Start, caret, TextPatternRangeEndpoint.End) != 0) return false;
-            System.Windows.Rect[] bounds = caret.GetBoundingRectangles();
-            if (bounds.Length == 1 && bounds[0].Height > 0)
-            {
-                rectangle = ConvertBounds(bounds[0], false);
-                return IsCaretRectangle(rectangle);
-            }
-            TextPatternRange character = caret.Clone();
-            character.ExpandToEnclosingUnit(TextUnit.Character);
-            bounds = character.GetBoundingRectangles();
-            if (bounds.Length != 1 || bounds[0].Height <= 0) return false;
-            bool atEnd = caret.CompareEndpoints(TextPatternRangeEndpoint.Start, character, TextPatternRangeEndpoint.End) == 0;
-            rectangle = ConvertBounds(bounds[0], atEnd);
-            return IsCaretRectangle(rectangle);
-        }
-
-        private static bool BelongsToForeground(AutomationElement element, IntPtr foreground)
-        {
-            for (int depth = 0; element != null && depth < 32; depth++)
-            {
-                IntPtr window = new IntPtr(element.Current.NativeWindowHandle);
-                if (window == foreground || (window != IntPtr.Zero && Native.IsChild(foreground, window))) return true;
-                element = TreeWalker.RawViewWalker.GetParent(element);
-            }
-            return false;
-        }
-
-        private static Rectangle ConvertBounds(System.Windows.Rect bounds, bool atEnd)
-        {
-            if (bounds.IsEmpty || double.IsNaN(bounds.X) || double.IsInfinity(bounds.X) ||
-                double.IsNaN(bounds.Y) || double.IsInfinity(bounds.Y) || double.IsNaN(bounds.Height) || double.IsInfinity(bounds.Height) ||
-                double.IsNaN(bounds.Width) || double.IsInfinity(bounds.Width) || bounds.X < -100000 || bounds.Right > 100000 ||
-                bounds.Y < -100000 || bounds.Bottom > 100000) return Rectangle.Empty;
-            return new Rectangle((int)Math.Round(atEnd ? bounds.Right : bounds.Left), (int)Math.Round(bounds.Top), 1, (int)Math.Ceiling(bounds.Height));
-        }
-
         public void Dispose()
         {
-            lock (gate) { if (stopping) return; stopping = true; wake.Set(); javaWake.Set(); }
+            lock (gate)
+            {
+                if (stopping) return;
+                stopping = true;
+                wake.Set();
+                if (javaWorker != null) javaWake.Set(); else javaWake.Dispose();
+            }
             // Do not wait on a remote accessibility provider during shutdown.
         }
     }
