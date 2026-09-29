@@ -1,5 +1,12 @@
 # 版本记录
 
+## macOS 1.0.0 · 2026-09-29
+
+- 新增 Swift / AppKit 原生 macOS 版本，支持 macOS 13+，Universal 2 同时包含 Intel 与 Apple Silicon 架构。
+- 移植透明悬浮窗、菜单栏状态、光标跟随、Caps / Shift、跟随计时与防抖、颜色和显示设置。
+- 提供通用 DMG / ZIP、SHA-256 校验文件，以及双架构 GitHub Actions 编译测试和发布流程。
+- macOS 输入源及辅助功能限制、未公证说明见 [macOS 文档](macos/README.md)。Windows 版本继续保持 1.4.4。
+
 ## 1.4.4 · 2026-09-20
 
 - 高频状态轮询不再生成诊断字符串；复制诊断时才格式化，并增加工作集、私有内存、托管堆、GDI / USER 句柄及运行时长。
@@ -66,9 +73,3 @@
 
 - 显示当前窗口输入模式和 Caps Lock / Shift 状态。
 - 提供拖动、大小、透明度、鼠标穿透、开机启动和单实例恢复。
-# macOS 1.0.0 — 2026-09-29
-
-- 新增 Swift / AppKit 原生 macOS 版本，支持 macOS 13+，Universal 2 同时包含 Intel 与 Apple Silicon 架构。
-- 移植透明悬浮窗、菜单栏状态、光标跟随、Caps / Shift、跟随计时与防抖、颜色和显示设置。
-- 提供通用 DMG / ZIP、SHA-256 校验文件，以及双架构 GitHub Actions 编译测试和发布流程。
-- macOS 输入源及辅助功能限制、未公证说明见 [macOS 文档](macos/README.md)。Windows 版本继续保持 1.4.4。
