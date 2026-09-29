@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 public enum BeaconGeometry {
     public static func clamp(_ frame: CGRect, to area: CGRect) -> CGRect {

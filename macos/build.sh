@@ -17,6 +17,8 @@ done
 lipo -create "$OUTPUT/InputBeacon-arm64" "$OUTPUT/InputBeacon-x86_64" -output "$APP/Contents/MacOS/InputBeacon"
 lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/InputBeacon"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+swift scripts/make-icon.swift "$OUTPUT/AppIcon.iconset"
+iconutil -c icns "$OUTPUT/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
 cp README.md "$APP/Contents/Resources/使用说明.md"
 plutil -lint "$APP/Contents/Info.plist"

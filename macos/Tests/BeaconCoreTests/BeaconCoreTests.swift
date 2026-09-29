@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import BeaconCore
 
 final class BeaconCoreTests: XCTestCase {
