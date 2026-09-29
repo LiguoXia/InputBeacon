@@ -15,7 +15,7 @@ for arch in arm64 x86_64; do
   cp "$bin_path/InputBeacon" "$OUTPUT/InputBeacon-$arch"
 done
 lipo -create "$OUTPUT/InputBeacon-arm64" "$OUTPUT/InputBeacon-x86_64" -output "$APP/Contents/MacOS/InputBeacon"
-lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/InputBeacon"
+lipo "$APP/Contents/MacOS/InputBeacon" -verify_arch arm64 x86_64
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 swift scripts/make-icon.swift "$OUTPUT/AppIcon.iconset"
 iconutil -c icns "$OUTPUT/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"

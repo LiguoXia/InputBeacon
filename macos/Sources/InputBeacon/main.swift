@@ -1,7 +1,9 @@
 import AppKit
 import BeaconCore
 
-if CommandLine.arguments.contains("--self-check") {
+if let index = CommandLine.arguments.firstIndex(of: "--render-preview"), CommandLine.arguments.count > index + 1 {
+    try VisualChecks.render(to: CommandLine.arguments[index + 1])
+} else if CommandLine.arguments.contains("--self-check") {
     precondition(InputState(mode: .english, caps: true, shift: true).uppercase == false)
     precondition(Preferences.color("#0071E3") != nil)
     precondition(Preferences.color("bad-color") == nil)

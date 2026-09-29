@@ -33,6 +33,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         timer?.tolerance = 0.025
         RunLoop.main.add(timer!, forMode: .common)
         tick()
+        if CommandLine.arguments.contains("--ui-smoke") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
+                precondition(status.menu != nil && status.button != nil)
+                precondition(!floating.panel.canBecomeKey && !bubble.panel.canBecomeKey)
+                precondition(bubble.panel.ignoresMouseEvents)
+                precondition(floating.panel.contentView === floating.view)
+                precondition(floating.panel.frame.width > 0)
+                print("AppKit menu and nonactivating overlays OK")
+                NSApp.terminate(nil)
+            }
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
