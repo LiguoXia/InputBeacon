@@ -2,6 +2,10 @@
 
 基于 Windows 1.4.4 的交互与跟随计时逻辑实现的原生 Swift / AppKit 版本。支持 **macOS 13 Ventura 或更高版本**，Universal 2 程序包含 **Intel x86_64 和 Apple Silicon arm64**，无需 Rosetta、.NET 或其他运行时。
 
+![macOS 原生渲染：透明悬浮文字与跟随提示](docs/overlay-preview.png)
+
+上图由实际绘制代码在 macOS CI 生成，用于展示浅色 / 深色背景上的文字与气泡；并非第三方应用兼容性截图。
+
 ## 安装
 
 1. 从 [macOS 1.0.0 发布页](https://github.com/LiguoXia/InputBeacon/releases/tag/macos-v1.0.0) 下载 `InputBeacon-macOS-1.0.0-universal.dmg`。
@@ -53,5 +57,7 @@ bash build.sh
 GitHub Actions 在 Apple Silicon 和 Intel macOS runner 上分别执行核心测试、双架构编译、签名校验和本机 `--self-check` 启动检查。推送 `macos-v*` 标签时，在两组检查通过后发布安装包，不改变 Windows 最新版标记。
 
 自动化检查覆盖大小写、输入源语言、输入框切换、未知状态、200 ms 防抖、轮询暂停、定时隐藏和多显示器坐标 / 边缘避让。CI 的 `--self-check` 只确认二进制可执行，不等于实际用户会话中已验证辅助功能、输入法或登录启动。发布前后可使用 [人工验收清单](QA.md) 进行真实 Mac 验证。
+
+首次发布的 [双架构验证记录](https://github.com/LiguoXia/InputBeacon/actions/runs/36504913042)：Intel / Apple Silicon 均通过 18 项核心测试、Universal 双切片检查、签名校验、本机执行与 AppKit 菜单 / 非激活窗口启动检查，并生成可检查的渲染图。实际执行环境为 macOS 15.7.9；macOS 13 是编译部署目标，尚未在 macOS 13 真机上验收。
 
 接口依据：[Apple Accessibility](https://developer.apple.com/documentation/applicationservices/axuielement)、[AX 调用超时](https://developer.apple.com/documentation/applicationservices/1459345-axuielementsetmessagingtimeout)、[SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)。
