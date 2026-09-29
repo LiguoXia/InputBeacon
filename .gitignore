@@ -7,3 +7,7 @@ local-preview*/
 *.pdb
 settings.ini
 *.tmp
+macos/.build/
+macos/dist/
+macos/.swiftpm/
+.DS_Store

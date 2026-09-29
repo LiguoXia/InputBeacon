@@ -1,5 +1,7 @@
 # 键盘状态 · InputBeacon
 
+现提供 **[macOS 原生版（Intel + Apple Silicon）](macos/README.md)**，支持 macOS 13+。下载 **[macOS 通用安装包](https://github.com/LiguoXia/InputBeacon/releases/tag/macos-v1.0.0)**。macOS 的“中 / 英”表示系统输入源语言；具体平台差异见 macOS 说明。下文为 Windows 版说明。
+
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
 单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.4**。

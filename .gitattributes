@@ -5,3 +5,7 @@
 *.html text eol=lf
 *.manifest text eol=lf
 *.png binary
+*.swift text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.plist text eol=lf
