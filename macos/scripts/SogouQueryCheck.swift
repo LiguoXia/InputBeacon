@@ -1,5 +1,5 @@
 // Validates the actual vendor process's read-only protocol without selecting an IME.
-import Foundation
+import AppKit
 import Carbon
 
 @main
@@ -11,9 +11,14 @@ final class SogouQueryCheck: NSObject {
     private let center = DistributedNotificationCenter.default()
     static func main() {
         guard ProcessInfo.processInfo.environment["CI"] == "true" else { fatalError("CI-only vendor integration check") }
+        let app = NSApplication.shared
+        app.setActivationPolicy(.prohibited)
         // A freshly copied IME needs registration in this disposable account.
         let url = URL(fileURLWithPath: "/Library/Input Methods/SogouInput.app")
         print("TISRegisterInputSource=\(TISRegisterInputSource(url as CFURL))")
+        let sources = TISCreateInputSourceList([kTISPropertyInputSourceID as String: "com.sogou.inputmethod.sogou.pinyin"] as CFDictionary, true).takeRetainedValue() as! [TISInputSource]
+        guard let source = sources.first else { print("FAIL source not registered"); exit(1) }
+        print("TISEnableInputSource=\(TISEnableInputSource(source))")
         let check = SogouQueryCheck()
         check.center.addObserver(check, selector: #selector(check.receive(_:)),
                                  name: .init(ThirdPartyInputProvider.sogou.responseName), object: nil, suspensionBehavior: .deliverImmediately)
@@ -27,7 +32,7 @@ final class SogouQueryCheck: NSObject {
             check.center.postNotificationName(.init(ThirdPartyInputProvider.sogou.requestName), object: nil, userInfo: nil, deliverImmediately: true)
         }
         RunLoop.main.add(timer, forMode: .common)
-        withExtendedLifetime(check) { RunLoop.main.run() }
+        withExtendedLifetime(check) { app.run() }
     }
     @objc private func receive(_ notification: Notification) {
         guard pending else { return }
