@@ -2,6 +2,8 @@
 set -euo pipefail
 [[ "${CI:-}" == "true" ]] || { echo 'This test requires a disposable CI account'; exit 1; }
 cd "$(dirname "$0")/.."
+swift build
+export INPUTBEACON_PROBE="$(swift build --show-bin-path)/InputBeacon"
 mkdir -p .build/sogou-test
 cd .build/sogou-test
 # Official vendor distribution, pinned to the inspected 6.25.1.11973 package.
@@ -25,4 +27,8 @@ swiftc ../../Sources/BeaconCore/InputState.swift ../../Sources/BeaconCore/ThirdP
   ../../scripts/SogouIntegration.swift -o SogouTest.app/Contents/MacOS/SogouTest
 codesign --force --sign - SogouTest.app
 open '/Library/Input Methods/SogouInput.app'
-SogouTest.app/Contents/MacOS/SogouTest
+open -W -n --stdout "$PWD/integration.log" --stderr "$PWD/integration-errors.log" \
+  --env CI=true --env "INPUTBEACON_PROBE=$INPUTBEACON_PROBE" \
+  --env "INPUTBEACON_TEST_RESULT=$PWD/result.txt" SogouTest.app
+cat integration.log
+test -f result.txt && test "$(cat result.txt)" = PASS

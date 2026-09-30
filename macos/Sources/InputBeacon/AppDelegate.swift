@@ -213,10 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func copyDiagnostics() {
-        let text = "InputBeacon macOS \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")\nOS=\(ProcessInfo.processInfo.operatingSystemVersionString)\nInputSource=\(state.sourceID)\nMode=\(state.mode.rawValue)\nCaps=\(state.caps) Shift=\(state.shift)\nAccessibility=\(AXIsProcessTrusted())\nFollow=\(preferences.followCaret) Seconds=\(preferences.followSeconds)\nTrigger=\(lifetime.lastTrigger) Count=\(lifetime.triggerCount)\n"
+        let text = "InputBeacon macOS \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")\nOS=\(ProcessInfo.processInfo.operatingSystemVersionString)\n\(probe.diagnostic)\nModeOrigin=\(state.modeOrigin)\nMode=\(state.mode.rawValue)\nCaps=\(state.caps) Shift=\(state.shift)\nAccessibility=\(AXIsProcessTrusted())\nFollow=\(preferences.followCaret) Seconds=\(preferences.followSeconds)\nTrigger=\(lifetime.lastTrigger) Count=\(lifetime.triggerCount)\n"
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
     }
     @objc private func about() {
-        message("键盘状态 · InputBeacon \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")", "支持 Intel 与 Apple Silicon，macOS 13 或更高版本。\n\n中 / 英表示系统输入源的语言；第三方输入法内部的中英切换、全角模式未必公开，不保证反映实际输入模式。A / a 根据 Caps Lock 与 Shift 组合计算。\n\n光标跟随需辅助功能权限，只查询光标位置及控件标识，不读取输入文本。自绘终端、安全输入框或未提供光标接口的应用可能不支持跟随。\n\n拖动悬浮文字调整位置，右键打开设置。圆点表示 Caps Lock，↑ 表示 Shift。\n\ngithub.com/LiguoXia/InputBeacon")
+        message("键盘状态 · InputBeacon \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")", "支持 Intel 与 Apple Silicon，macOS 13 或更高版本。\n\n搜狗与支持状态查询的鼠须管可显示输入法内部中英文状态；其他输入法显示系统输入源语言。等待或无法取得第三方状态时显示 ?，可复制状态诊断排查。全角模式不显示。A / a 根据 Caps Lock 与 Shift 组合计算。\n\n光标跟随需辅助功能权限，只查询光标位置及控件标识，不读取输入文本。自绘终端、安全输入框或未提供光标接口的应用可能不支持跟随。\n\n拖动悬浮文字调整位置，右键打开设置。圆点表示 Caps Lock，↑ 表示 Shift。\n\ngithub.com/LiguoXia/InputBeacon")
     }
 }

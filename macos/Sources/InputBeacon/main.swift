@@ -1,7 +1,9 @@
 import AppKit
 import BeaconCore
 
-if let index = CommandLine.arguments.firstIndex(of: "--render-preview"), CommandLine.arguments.count > index + 1 {
+if CommandLine.arguments.contains("--diagnose") || CommandLine.arguments.contains("--probe-smoke") {
+    ProbeDiagnostics.run(requireSequence: CommandLine.arguments.contains("--probe-smoke"))
+} else if let index = CommandLine.arguments.firstIndex(of: "--render-preview"), CommandLine.arguments.count > index + 1 {
     try VisualChecks.render(to: CommandLine.arguments[index + 1])
 } else if CommandLine.arguments.contains("--self-check") {
     precondition(InputState(mode: .english, caps: true, shift: true).uppercase == false)

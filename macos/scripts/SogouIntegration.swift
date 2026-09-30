@@ -14,6 +14,7 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
     private var replyCount = 0
     private var selected = false
     private var originalSource: TISInputSource?
+    private var productionProbe: Process?
     private let center = DistributedNotificationCenter.default()
     private let expected: [InputMode] = [.chinese, .english, .chinese]
 
@@ -53,9 +54,21 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
             let sources = TISCreateInputSourceList([kTISPropertyInputSourceID as String: "com.sogou.inputmethod.sogou.pinyin"] as CFDictionary, false).takeRetainedValue() as! [TISInputSource]
             if let source = sources.first {
                 let result = TISSelectInputSource(source)
-                print("Select refreshed Sogou source=\(result)")
-                if result == noErr { selected = true; stageStarted = Date() }
+                print("Select refreshed Sogou source=\(result) frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none")")
+                if result == noErr {
+                    selected = true; stageStarted = Date()
+                    guard let path = ProcessInfo.processInfo.environment["INPUTBEACON_PROBE"] else { finish("Missing production probe", success: false); return }
+                    let process = Process(); process.executableURL = URL(fileURLWithPath: path)
+                    process.arguments = ["--probe-smoke"]
+                    do { try process.run(); productionProbe = process }
+                    catch { finish("Cannot launch production probe: \(error)", success: false) }
+                }
             }
+            return
+        }
+        if stage == expected.count {
+            guard let process = productionProbe, !process.isRunning else { return }
+            finish("Real Sogou and production probe sequence complete", success: process.terminationStatus == 0)
             return
         }
         guard Date().timeIntervalSince(stageStarted) > 0.5 else { return }
@@ -66,6 +79,7 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
         center.postNotificationName(.init(ThirdPartyInputProvider.sogou.requestName), object: nil, userInfo: nil, deliverImmediately: true)
     }
     @objc private func receive(_ notification: Notification) {
+        guard stage < expected.count else { return }
         replyCount += 1
         let mode = ThirdPartyInputProvider.sogou.decode(object: notification.object, userInfo: notification.userInfo)
         let raw = notification.userInfo?["inputStatus"] as? String ?? "missing"
@@ -74,13 +88,16 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
         if stableReplies >= 3 && Date().timeIntervalSince(stageStarted) > 1 {
             print("PASS real Sogou \(expected[stage].rawValue) with unchanged source ID")
             stage += 1; stableReplies = 0; stageStarted = Date()
-            if stage == expected.count { finish("Real Sogou Chinese → English → Chinese passed", success: true) }
         }
     }
     private func finish(_ message: String, success: Bool) {
         timer?.invalidate(); center.removeObserver(self)
+        if let process = productionProbe, process.isRunning { process.terminate() }
         if let originalSource { TISSelectInputSource(originalSource) }
         print(message); fflush(stdout)
+        if let path = ProcessInfo.processInfo.environment["INPUTBEACON_TEST_RESULT"] {
+            try? (success ? "PASS" : "FAIL").write(toFile: path, atomically: true, encoding: .utf8)
+        }
         exit(success ? 0 : 1)
     }
 }
