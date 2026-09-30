@@ -66,6 +66,6 @@ final class Overlay {
         let color = preferences.colorHex.flatMap(Preferences.color)
         if view.customColor != color { view.customColor = color }
         panel.alphaValue = preferences.opacity
-        view.toolTip = "\(state.sourceName)；Caps \(state.caps ? "开" : "关")，Shift \(state.shift ? "按下" : "松开")。中/英表示系统输入源。"
+        view.toolTip = "\(state.sourceName)；Caps \(state.caps ? "开" : "关")，Shift \(state.shift ? "按下" : "松开")。\(state.modeDetail)。"
     }
 }

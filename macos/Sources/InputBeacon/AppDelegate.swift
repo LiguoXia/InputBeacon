@@ -77,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let color = preferences.colorHex.flatMap(Preferences.color) ?? .labelColor
             status.button?.attributedTitle = NSAttributedString(string: state.label, attributes: [.foregroundColor: color, .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .medium)])
         } else { status.button?.title = "⌨" }
-        status.button?.toolTip = "键盘状态 · \(state.sourceName)\n中/英表示系统输入源；右键或点击打开设置"
+        status.button?.toolTip = "键盘状态 · \(state.sourceName)\n\(state.modeDetail)；点击打开设置"
         floating.update(state: state, preferences: preferences)
         guard preferences.followCaret, !menuOpen, !dialogOpen,
               let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
@@ -112,7 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu(); menu.delegate = self
         let title = NSMenuItem(title: "键盘状态 · InputBeacon", action: nil, keyEquivalent: "")
         menu.addItem(title)
-        menu.addItem(NSMenuItem(title: "中 / 英表示系统输入源", action: nil, keyEquivalent: ""))
+        let modeInfo = NSMenuItem(title: state.modeDetail, action: nil, keyEquivalent: "")
+        modeInfo.tag = 901; menu.addItem(modeInfo)
         menu.addItem(.separator())
         menu.addItem(item("显示悬浮窗", #selector(toggleFloating)))
         menu.addItem(item("菜单栏显示状态", #selector(toggleMenuStatus)))
@@ -143,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func refreshChecks(_ menu: NSMenu) {
         for item in menu.items {
+            if item.tag == 901 { item.title = state.modeDetail }
             switch item.action {
             case #selector(toggleFloating): item.state = preferences.showFloating ? .on : .off
             case #selector(toggleMenuStatus): item.state = preferences.showMenuStatus ? .on : .off

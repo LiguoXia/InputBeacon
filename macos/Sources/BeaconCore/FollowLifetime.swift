@@ -35,7 +35,7 @@ public struct FollowLifetime {
                 else if pendingMode != current { pendingMode = current; pendingSince = now }
                 else if now - pendingSince >= 0.2 {
                     mode = current; pendingMode = nil
-                    trigger(seconds: seconds, now: now, reason: "Input source confirmed")
+                    trigger(seconds: seconds, now: now, reason: "Input mode confirmed")
                 }
             } else { pendingMode = nil }
         }

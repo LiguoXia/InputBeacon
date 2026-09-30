@@ -59,9 +59,18 @@ jobs:
             macos/dist/SHA256SUMS.txt
           if-no-files-found: error
 
+  sogou:
+    name: Real Sogou compatibility
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check real Sogou internal Chinese and English states
+        run: bash macos/scripts/test-sogou.sh
+
   release:
     if: startsWith(github.ref, 'refs/tags/macos-v')
-    needs: test
+    needs: [test, sogou]
     runs-on: ubuntu-latest
     permissions:
       contents: write

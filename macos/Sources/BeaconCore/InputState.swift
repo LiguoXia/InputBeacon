@@ -18,6 +18,16 @@ public struct InputState: Equatable {
     public var sourceName: String
     public var caps: Bool
     public var shift: Bool
+    public var modeOrigin = "system-input-source"
+    public var modeDetail: String {
+        switch modeOrigin {
+        case "sogou-status": return "搜狗当前中英文状态"
+        case "squirrel-status": return "鼠须管当前中英文状态"
+        case "sogou-waiting": return "等待搜狗状态回复；可复制状态诊断排查"
+        case "squirrel-waiting": return "等待鼠须管状态回复；旧版本可能不支持状态查询"
+        default: return "系统输入源语言（非输入法内部状态）"
+        }
+    }
     public var uppercase: Bool { caps != shift }
     public var modeKey: String? { mode == .unknown ? nil : "\(mode.rawValue):\(sourceID)" }
     public var label: String { "\(mode.symbol)  \(uppercase ? "A" : "a")\(caps ? "•" : "")\(shift ? "↑" : "")" }
