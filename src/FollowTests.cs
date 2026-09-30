@@ -222,6 +222,30 @@ namespace InputBeacon
         private static void CheckCompatibility(Action<string, bool> check)
         {
             Rectangle caret;
+            check("WeChat empty editor accepts a confirmed text focus", WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, true, true, false, false));
+            check("WeChat voice button is never an input anchor", !WechatInputAnchor.IsEditor("mmui::VoiceButton", "Qt", 50000, true, true, false, false));
+            check("Other Qt editors are unaffected", !WechatInputAnchor.IsEditor("QTextEdit", "Qt", 50004, true, true, false, false));
+            check("Unfocused WeChat editor cannot anchor a hint", !WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, false, true, false, false));
+            check("Hidden and disabled WeChat editors are rejected", !WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, true, true, false, true) && !WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, true, false, false, false));
+            check("Password and unknown provider flags are rejected", !WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, true, true, true, false) && !WechatInputAnchor.IsEditor("mmui::ChatInputField", "Qt", 50004, true, true, null, false));
+            check("WeChat field anchor uses upper edge including negative monitors", WechatInputAnchor.FromBounds(new double[] { -900, 420, 600, 180 }, out caret) && caret == new Rectangle(-900, 420, 1, 1));
+            check("WeChat rejects missing and invalid field bounds", !WechatInputAnchor.FromBounds(null, out caret) && !WechatInputAnchor.FromBounds(new double[] { 1, 2, 0, 80 }, out caret) && !WechatInputAnchor.FromBounds(new double[] { double.NaN, 0, 600, 180 }, out caret));
+            var empty = new GeometryRange(0, 0, false);
+            check("WeChat empty document and insertion are verified without text reads", WechatInputAnchor.IsEmptyInsertion(empty, empty));
+            check("WeChat missing ranges cannot invent an empty editor", !WechatInputAnchor.IsEmptyInsertion(empty, null) && !WechatInputAnchor.IsEmptyInsertion(null, empty));
+            var populated = new GeometryRange(0, 3, false); populated.End = 3;
+            check("WeChat nonempty document never uses field anchor", !WechatInputAnchor.IsEmptyInsertion(populated, empty));
+            check("WeChat noncollapsed or unrelated selection never uses field anchor", !WechatInputAnchor.IsEmptyInsertion(empty, populated) && !WechatInputAnchor.IsEmptyInsertion(empty, new GeometryRange(1, 1, false)));
+            var fallbackLifetime = new FollowLifetime();
+            var fallbackState = new InputState { Foreground = new IntPtr(1), Focus = new IntPtr(1), Mode = InputMode.English };
+            var fallbackSample = new CaretSample { Foreground = new IntPtr(1), Focus = new IntPtr(1), Valid = true, InputIdentity = "wechat-editor", IsFieldAnchor = true };
+            fallbackLifetime.Observe(fallbackState, 3, 100);
+            fallbackLifetime.ObserveCaret(fallbackState, fallbackSample, 3, 100);
+            check("Empty WeChat input starts a hint before caret geometry exists", fallbackLifetime.ShouldShow(true, 3, true, 100));
+            fallbackSample.IsFieldAnchor = false;
+            fallbackLifetime.ObserveCaret(fallbackState, fallbackSample, 3, 200);
+            check("Switch from field anchor to real caret does not extend countdown", fallbackLifetime.TriggerCount == 1 && !fallbackLifetime.ShouldShow(true, 3, true, 3100));
+            check("Losing WeChat input geometry hides the hint", !fallbackLifetime.ShouldShow(true, 0, false, 300));
             check("UIA accepts collapsed zero-width caret", AutomationCaret.FromBounds(new double[] { 20, 30, 0, 18 }, false, out caret) && caret == new Rectangle(20, 30, 1, 18));
             check("UIA uses character right edge at document end", AutomationCaret.FromBounds(new double[] { -200, 30, 9, 18 }, true, out caret) && caret.X == -191);
             check("UIA rejects empty and multi-line ranges", !AutomationCaret.FromBounds(new double[0], false, out caret) && !AutomationCaret.FromBounds(new double[8], false, out caret));

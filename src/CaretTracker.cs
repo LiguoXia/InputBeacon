@@ -13,6 +13,7 @@ namespace InputBeacon
         internal Rectangle Bounds;
         internal long Timestamp;
         internal bool Valid;
+        internal bool IsFieldAnchor;
         internal string InputIdentity;
     }
 
@@ -178,6 +179,7 @@ namespace InputBeacon
                                         if (found)
                                         {
                                             sample.InputIdentity = automation.InputIdentity;
+                                            sample.IsFieldAnchor = automation.IsFieldAnchor;
                                             geometryTimestamp = automation.GeometryTimestamp;
                                         }
                                     }

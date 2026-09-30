@@ -4,7 +4,9 @@
 
 轻量的 Windows 输入状态提示工具。在浏览器终端、SSH 客户端或编辑器里输入时，直接看见当前的 **中 / 英** 和 **A / a**。
 
-单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.4**。
+单文件 EXE，双击运行。提供透明悬浮窗、任务栏通知区域状态，以及输入光标旁的跟随气泡。三种显示方式可独立开启或同时使用。当前版本：**1.4.5**。
+
+**1.4.5 微信空输入框兼容更新**：微信 4.1.15.13 在空白聊天框获得焦点后可能不提供光标坐标。新版确认空白文本编辑框后，先在输入框上边缘显示提示；取得真实光标后自动恢复跟随。语音按钮不作为输入框。
 
 **1.4.4 内存与流畅度优化版**减少持续轮询的临时分配、重复画面上传和辅助功能接口资源占用。优化说明和实测记录见 [性能优化记录](docs/performance-1.4.4.md)。
 
@@ -19,7 +21,7 @@
 ## 下载与开始使用
 
 1. 打开本仓库的 **[Releases](https://github.com/LiguoXia/InputBeacon/releases/latest)**，选择最新版本。
-2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.4/InputBeacon-v1.4.4-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
+2. 下载 **[InputBeacon.exe](https://github.com/LiguoXia/InputBeacon/releases/latest/download/InputBeacon.exe)**，或下载 **[便携 ZIP](https://github.com/LiguoXia/InputBeacon/releases/download/v1.4.5/InputBeacon-v1.4.5-portable.zip)** 后解压。便携包内的可执行文件名为 `键盘状态.exe`，与单独下载的 EXE 内容相同。GitHub 自动生成的 `Source code` 是源码，普通使用无需下载。
 3. 双击 EXE。第一次运行默认显示悬浮窗；任务栏状态、光标跟随和开机启动默认关闭。
 4. 点击终端输入区，再切换中英文、Caps Lock 或 Shift，观察提示。
 5. 右键悬浮文字或通知区域图标，调整设置。
@@ -87,7 +89,7 @@ Windows 可能把首次出现的图标收进 `^` 隐藏区域。把两个图标�
 
 **1.4.1 的防误触发规则：**中英文变化需连续稳定至少 200 ms 才弹出气泡；实际 A / a 变化仍在下一次轮询时提示。短暂的 `?`、读取失败后的恢复、全角标记波动，以及 Caps / Shift 组合变化但 A / a 没变，都不会触发或延长提示。此修复针对微信使用微软拼音时报告的误弹路径；固定悬浮窗与任务栏仍正常刷新状态。“一直显示”不受此触发过滤影响。
 
-**跟随的是文本插入光标，不是鼠标指针。** 软件未提供可靠光标位置、失去可用输入光标，或正在操作本工具的菜单、设置对话框时，提示会隐藏。程序不会根据鼠标位置猜测光标位置。
+**跟随的是文本插入光标，不是鼠标指针。** 除已确认的微信空白聊天输入框使用输入框边缘提示外，软件未提供可靠光标位置、失去可用输入光标，或正在操作本工具的菜单、设置对话框时，提示会隐藏。程序不会根据鼠标位置猜测光标位置。
 
 ![光标跟随设置](docs/images/follow-settings.png)
 

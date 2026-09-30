@@ -14,6 +14,7 @@ namespace InputBeacon
         internal string Status { get; private set; }
         internal string InputIdentity { get; private set; }
         internal long GeometryTimestamp { get; private set; }
+        internal bool IsFieldAnchor { get; private set; }
 
         internal string ReadFocusIdentity(IntPtr foreground)
         {
@@ -64,6 +65,7 @@ namespace InputBeacon
         {
             rectangle = Rectangle.Empty;
             InputIdentity = null;
+            IsFieldAnchor = false;
             UiaElement element = null;
             try
             {
@@ -77,6 +79,11 @@ namespace InputBeacon
                 {
                     result = TrySelection(element, out rectangle);
                     if (result) Status = "UIA TextPattern";
+                }
+                if (!result && control == IntPtr.Zero && !selectionOnly)
+                {
+                    result = TryWechatEmptyInput(element, foreground, out rectangle);
+                    if (result) { IsFieldAnchor = true; Status = "UIA: WeChat empty input field anchor (caret unavailable)"; }
                 }
                 if (result)
                 {
@@ -101,6 +108,40 @@ namespace InputBeacon
             }
             catch (COMException) { return null; }
             catch (NotSupportedException) { return null; }
+        }
+
+        // WeChat 4.1.15 can focus an empty Qt editor without publishing any caret
+        // geometry. This is an explicit input-field anchor, not a fabricated caret.
+        // No text, value, selection mutation, mouse position or voice button is used.
+        private bool TryWechatEmptyInput(UiaElement element, IntPtr foreground, out Rectangle rectangle)
+        {
+            rectangle = Rectangle.Empty;
+            if (!WechatInputAnchor.IsEditor(element.Property(30012) as string, element.Property(30024) as string,
+                    element.Property(30003), element.Property(30008), element.Property(30010),
+                    element.Property(30019), element.Property(30022))) return false;
+            object provider = null;
+            UiaRange document = null, selection = null;
+            UiaRangeArray selections = null;
+            UiaElement current = null;
+            try
+            {
+                provider = element.Pattern(10014);
+                var pattern = provider as UiaText;
+                if (pattern == null) return false;
+                document = pattern.DocumentRange();
+                if (document == null || document.CompareEndpoints(0, document, 1) != 0) return false;
+                selections = pattern.GetSelection();
+                if (selections == null || selections.Length() != 1) return false;
+                selection = selections.GetElement(0);
+                if (!WechatInputAnchor.IsEmptyInsertion(document, selection)) return false;
+                if (!WechatInputAnchor.FromBounds(element.Property(30001) as double[], out rectangle)) return false;
+                string identity = Identity(element);
+                current = client.GetFocusedElement();
+                return identity != null && current != null && identity == Identity(current) &&
+                    Equals(current.Property(30008), true) && !Equals(current.Property(30022), true) &&
+                    Native.GetForegroundWindow() == foreground && BelongsToWindow(current, foreground);
+            }
+            finally { Release(current); Release(selection); Release(selections); Release(document); Release(provider); }
         }
 
         private static bool TryCaretPattern(UiaElement element, out Rectangle rectangle)
@@ -259,6 +300,7 @@ namespace InputBeacon
     internal interface UiaText
     {
         void RangeFromPoint(); void RangeFromChild(); UiaRangeArray GetSelection();
+        void GetVisibleRanges(); UiaRange DocumentRange();
     }
 
     [ComImport, Guid("ce4ae76a-e717-4c98-81ea-47371d028eb6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
