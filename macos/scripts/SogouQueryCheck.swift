@@ -1,22 +1,29 @@
 // Validates the actual vendor process's read-only protocol without selecting an IME.
 import Foundation
+import Carbon
 
 @main
 final class SogouQueryCheck: NSObject {
     private var replies = 0
     private var requests = 0
     private var pending = false
+    private var lastRequest = Date.distantPast
     private let center = DistributedNotificationCenter.default()
     static func main() {
         guard ProcessInfo.processInfo.environment["CI"] == "true" else { fatalError("CI-only vendor integration check") }
+        // A freshly copied IME needs registration in this disposable account.
+        let url = URL(fileURLWithPath: "/Library/Input Methods/SogouInput.app")
+        print("TISRegisterInputSource=\(TISRegisterInputSource(url as CFURL))")
         let check = SogouQueryCheck()
         check.center.addObserver(check, selector: #selector(check.receive(_:)),
                                  name: .init(ThirdPartyInputProvider.sogou.responseName), object: nil, suspensionBehavior: .deliverImmediately)
         let started = Date()
         let timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
             if Date().timeIntervalSince(started) > 20 { print("FAIL no valid Sogou response"); exit(1) }
-            guard !check.pending else { return }
+            // The vendor may still be starting when the first request is sent.
+            guard !check.pending || Date().timeIntervalSince(check.lastRequest) >= 1 else { return }
             check.pending = true; check.requests += 1
+            check.lastRequest = Date()
             check.center.postNotificationName(.init(ThirdPartyInputProvider.sogou.requestName), object: nil, userInfo: nil, deliverImmediately: true)
         }
         RunLoop.main.add(timer, forMode: .common)

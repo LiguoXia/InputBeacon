@@ -68,7 +68,7 @@ bash build.sh
 
 `dist/` 包含 Universal `.app`、DMG、ZIP 与 SHA-256 校验文件。构建脚本分别编译 arm64 / x86_64，再使用 `lipo` 合并并验证两个切片，临时签名后生成安装包。
 
-GitHub Actions 在 Apple Silicon 和 Intel macOS runner 上分别执行核心测试、双架构编译、签名校验和本机 `--self-check` 启动检查。推送 `macos-v*` 标签时，在两组检查通过后发布安装包，不改变 Windows 最新版标记。
+GitHub Actions 在 Apple Silicon 和 Intel macOS runner 上分别执行核心与通知接收器测试、双架构编译、签名校验和本机启动检查，另外检查真实搜狗进程的只读查询回复。推送 `macos-v*` 标签时，在这些检查通过后发布安装包，不改变 Windows 最新版标记。
 
 自动化检查覆盖大小写、输入源语言、输入框切换、未知状态、200 ms 防抖、轮询暂停、定时隐藏和多显示器坐标 / 边缘避让。CI 的 `--self-check` 只确认二进制可执行，不等于实际用户会话中已验证辅助功能、输入法或登录启动。发布前后可使用 [人工验收清单](QA.md) 进行真实 Mac 验证。
 
