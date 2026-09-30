@@ -40,6 +40,12 @@
 
 刚进入输入法、回复超时、协议不支持时会显示 `?`；不会把搜狗名称直接当作“正在输入中文”。超过 750 ms 的状态不可继续使用。若一直为 `?`，确认输入框获得焦点、输入法正常运行，然后复制状态诊断并提供搜狗 / 鼠须管版本。`ThirdPartyQuery=confirmed` 表示收到有效回复，`timeout` 表示未及时收到，`unsupported-reply` 表示无法解析回复。
 
+也可以在终端运行以下命令，随后在 10 秒内切回目标输入框并切换中英文；输出仅含输入源及状态变化，不含输入文本：
+
+```sh
+/Applications/InputBeacon.app/Contents/MacOS/InputBeacon --diagnose
+```
+
 第三方接口可能随输入法版本变化；并非所有搜狗历史版本和其他第三方输入法都已验证。当前不显示全角状态。接口依据与测试方式见 [第三方适配说明](docs/third-party-input.md)。
 
 ## 与 Windows 版的差异
@@ -72,6 +78,6 @@ GitHub Actions 在 Apple Silicon 和 Intel macOS runner 上分别执行核心与
 
 自动化检查覆盖大小写、输入源语言、输入框切换、未知状态、200 ms 防抖、轮询暂停、定时隐藏和多显示器坐标 / 边缘避让。CI 的 `--self-check` 只确认二进制可执行，不等于实际用户会话中已验证辅助功能、输入法或登录启动。发布前后可使用 [人工验收清单](QA.md) 进行真实 Mac 验证。
 
-首次发布的 [双架构验证记录](https://github.com/LiguoXia/InputBeacon/actions/runs/36504913042)：Intel / Apple Silicon 均通过 18 项核心测试、Universal 双切片检查、签名校验、本机执行与 AppKit 菜单 / 非激活窗口启动检查，并生成可检查的渲染图。实际执行环境为 macOS 15.7.9；macOS 13 是编译部署目标，尚未在 macOS 13 真机上验收。
+1.1.0 自动化包含 36 项测试（32 项核心、4 项生产通知接收器），并在独立任务验证真实搜狗 6.25.1.11973 的查询回复。原生 Shift 切换及真实应用场景尚未完成验收；具体边界见 [第三方适配说明](docs/third-party-input.md)。实际执行环境为 macOS 15.7.9；macOS 13 是编译部署目标，尚未在 macOS 13 真机上验收。
 
 接口依据：[Apple Accessibility](https://developer.apple.com/documentation/applicationservices/axuielement)、[AX 调用超时](https://developer.apple.com/documentation/applicationservices/1459345-axuielementsetmessagingtimeout)、[SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)。
