@@ -12,6 +12,7 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
     private var stageStarted = Date()
     private var stableReplies = 0
     private var replyCount = 0
+    private var selected = false
     private var originalSource: TISInputSource?
     private let center = DistributedNotificationCenter.default()
     private let expected: [InputMode] = [.chinese, .english, .chinese]
@@ -35,7 +36,7 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
         print("TISRegisterInputSource=\(registerResult)")
         let sources = TISCreateInputSourceList([kTISPropertyInputSourceID as String: "com.sogou.inputmethod.sogou.pinyin"] as CFDictionary, true).takeRetainedValue() as! [TISInputSource]
         guard let source = sources.first else { finish("Sogou source unavailable", success: false); return }
-        print("TISEnableInputSource=\(TISEnableInputSource(source)) TISSelectInputSource=\(TISSelectInputSource(source))")
+        print("TISEnableInputSource=\(TISEnableInputSource(source))")
         center.addObserver(self, selector: #selector(receive(_:)), name: .init(ThirdPartyInputProvider.sogou.responseName),
                            object: nil, suspensionBehavior: .deliverImmediately)
         started = Date(); stageStarted = Date()
@@ -45,6 +46,19 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
         if Date().timeIntervalSince(started) > 30 { finish("Timeout at stage \(stage), replies=\(replyCount)", success: false); return }
         // Allow IMK activation before configuring only this test application's mode.
         guard Date().timeIntervalSince(started) > 2 else { return }
+        if !selected {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil); window.makeFirstResponder(view)
+            // Enabling changes the registered source; retrieve a fresh selectable object.
+            let sources = TISCreateInputSourceList([kTISPropertyInputSourceID as String: "com.sogou.inputmethod.sogou.pinyin"] as CFDictionary, false).takeRetainedValue() as! [TISInputSource]
+            if let source = sources.first {
+                let result = TISSelectInputSource(source)
+                print("Select refreshed Sogou source=\(result)")
+                if result == noErr { selected = true; stageStarted = Date() }
+            }
+            return
+        }
+        guard Date().timeIntervalSince(stageStarted) > 0.5 else { return }
         let setting = stage == 1 ? "2" : "1"
         center.postNotificationName(.init("SGChangeSogouInputStatus"),
                                     object: "\(setting)::0::com.liguoxia.InputBeacon.SogouTest",
@@ -57,7 +71,7 @@ final class SogouIntegration: NSObject, NSApplicationDelegate {
         let raw = notification.userInfo?["inputStatus"] as? String ?? "missing"
         print("Sogou stage=\(stage) inputStatus=\(raw) decoded=\(mode?.rawValue ?? "unknown")")
         if mode == expected[stage] { stableReplies += 1 } else { stableReplies = 0 }
-        if stableReplies >= 3 {
+        if stableReplies >= 3 && Date().timeIntervalSince(stageStarted) > 1 {
             print("PASS real Sogou \(expected[stage].rawValue) with unchanged source ID")
             stage += 1; stableReplies = 0; stageStarted = Date()
             if stage == expected.count { finish("Real Sogou Chinese → English → Chinese passed", success: true) }
