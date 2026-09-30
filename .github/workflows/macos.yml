@@ -60,12 +60,12 @@ jobs:
           if-no-files-found: error
 
   sogou:
-    name: Real Sogou compatibility
+    name: Real Sogou status query
     runs-on: macos-15
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Check real Sogou internal Chinese and English states
+      - name: Check real Sogou read-only status replies
         run: bash macos/scripts/test-sogou.sh
 
   release:

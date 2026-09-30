@@ -7,7 +7,9 @@ let package = Package(
     products: [.executable(name: "InputBeacon", targets: ["InputBeacon"])],
     targets: [
         .target(name: "BeaconCore"),
-        .executableTarget(name: "InputBeacon", dependencies: ["BeaconCore"]),
-        .testTarget(name: "BeaconCoreTests", dependencies: ["BeaconCore"])
+        .target(name: "BeaconMac", dependencies: ["BeaconCore"]),
+        .executableTarget(name: "InputBeacon", dependencies: ["BeaconCore", "BeaconMac"]),
+        .testTarget(name: "BeaconCoreTests", dependencies: ["BeaconCore"]),
+        .testTarget(name: "BeaconMacTests", dependencies: ["BeaconMac", "BeaconCore"])
     ]
 )

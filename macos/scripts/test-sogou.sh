@@ -13,6 +13,14 @@ ditto -x -k sogou.zip .
 ditto -x -k sogou_mac_625a.app/Contents/Resources/SogouInput.zip payload
 sudo ditto payload/SogouInput.app '/Library/Input Methods/SogouInput.app'
 sudo xattr -dr com.apple.quarantine '/Library/Input Methods/SogouInput.app'
+open '/Library/Input Methods/SogouInput.app'
+if [[ "${INPUTBEACON_FULL_IME_TEST:-}" != "true" ]]; then
+  swiftc ../../Sources/BeaconCore/InputState.swift ../../Sources/BeaconCore/ThirdPartyInput.swift \
+    ../../scripts/SogouQueryCheck.swift -o SogouQueryCheck
+  ./SogouQueryCheck
+  exit 0
+fi
+# Optional full-session test for a runner where the installed IME is selectable.
 mkdir -p SogouTest.app/Contents/MacOS
 cat > SogouTest.app/Contents/Info.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -26,7 +34,6 @@ PLIST
 swiftc ../../Sources/BeaconCore/InputState.swift ../../Sources/BeaconCore/ThirdPartyInput.swift \
   ../../scripts/SogouIntegration.swift -o SogouTest.app/Contents/MacOS/SogouTest
 codesign --force --sign - SogouTest.app
-open '/Library/Input Methods/SogouInput.app'
 open -W -n --stdout "$PWD/integration.log" --stderr "$PWD/integration-errors.log" \
   --env CI=true --env "INPUTBEACON_PROBE=$INPUTBEACON_PROBE" \
   --env "INPUTBEACON_TEST_RESULT=$PWD/result.txt" SogouTest.app

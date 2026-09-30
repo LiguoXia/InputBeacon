@@ -22,21 +22,30 @@ struct InputSourceMetadata {
                     languages: property(kTISPropertyInputSourceLanguages, as: [String].self) ?? [],
                     modeID: property(kTISPropertyInputModeID, as: String.self) ?? "")
     }
-    var queryContext: InputQueryContext? {
+    func queryContext(frontmostPID: pid_t?) -> InputQueryContext? {
         guard let provider = ThirdPartyInputProvider.identify(sourceID: id, bundleID: bundleID),
-              let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              let pid = frontmostPID,
               pid != ProcessInfo.processInfo.processIdentifier else { return nil }
         return InputQueryContext(provider: provider, sourceID: id, applicationPID: pid)
     }
 }
 
-final class InputProbe: NSObject {
+public final class InputProbe: NSObject {
     private var query = InputModeQuery()
     private var metadata = InputSourceMetadata()
-    private(set) var replyCount = 0
+    public private(set) var replyCount = 0
     private var observers: [NSObjectProtocol] = []
+    private let sourceReader: () -> InputSourceMetadata
+    private let foregroundReader: () -> pid_t?
 
-    override init() {
+    public override convenience init() {
+        self.init(sourceReader: InputSourceMetadata.current,
+                  foregroundReader: { NSWorkspace.shared.frontmostApplication?.processIdentifier })
+    }
+    // Injectable snapshots let tests exercise the production notification receiver
+    // without changing the user's input source or requiring third-party activation.
+    init(sourceReader: @escaping () -> InputSourceMetadata, foregroundReader: @escaping () -> pid_t?) {
+        self.sourceReader = sourceReader; self.foregroundReader = foregroundReader
         super.init()
         let center = DistributedNotificationCenter.default()
         for provider in [ThirdPartyInputProvider.sogou, .squirrel] {
@@ -56,8 +65,8 @@ final class InputProbe: NSObject {
         for observer in observers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
     }
     private func refreshContext() {
-        metadata = .current()
-        query.update(context: metadata.queryContext)
+        metadata = sourceReader()
+        query.update(context: metadata.queryContext(frontmostPID: foregroundReader()))
     }
     @objc private func sourceChanged(_ notification: Notification) { refreshContext() }
     @objc private func receive(_ notification: Notification) {
@@ -67,7 +76,7 @@ final class InputProbe: NSObject {
         let mode = provider.decode(object: notification.object, userInfo: notification.userInfo)
         if query.receive(provider: provider, mode: mode, now: ProcessInfo.processInfo.systemUptime) { replyCount += 1 }
     }
-    func read() -> InputState {
+    public func read() -> InputState {
         refreshContext()
         let flags = CGEventSource.flagsState(.combinedSessionState)
         let now = ProcessInfo.processInfo.systemUptime
@@ -85,7 +94,7 @@ final class InputProbe: NSObject {
         }
         return state
     }
-    var diagnostic: String {
+    public var diagnostic: String {
         "InputSource=\(metadata.id)\nInputBundle=\(metadata.bundleID)\nInputModeID=\(metadata.modeID)\nInputLanguages=\(metadata.languages.joined(separator: ","))\nThirdPartyQuery=\(query.diagnostic)\nThirdPartyReplies=\(replyCount)"
     }
 }

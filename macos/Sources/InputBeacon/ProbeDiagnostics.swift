@@ -1,5 +1,6 @@
 import AppKit
 import BeaconCore
+import BeaconMac
 
 enum ProbeDiagnostics {
     static func run(requireSequence: Bool) -> Never {
